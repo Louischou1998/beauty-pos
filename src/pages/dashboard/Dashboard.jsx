@@ -103,7 +103,7 @@ export default function Dashboard() {
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {stats.map((s, i) => (
-          <Col span={6} key={i}>
+          <Col xs={24} sm={12} lg={6} key={i}>
             <div className="stat-card" style={{ padding: '22px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>

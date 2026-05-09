@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Card, Col, Row, Button, Tag, Typography, Divider,
   Select, Space, Empty, Modal, message, Spin, Result,
-  Input, Tabs, InputNumber, Alert, Form, Popconfirm,
+  Input, Tabs, InputNumber, Alert, Form, Popconfirm, Grid,
 } from 'antd';
 import {
   DeleteOutlined, ShoppingCartOutlined, CheckCircleOutlined,
@@ -44,7 +44,7 @@ function ItemGrid({
       </Space>
       <Row gutter={[10, 10]}>
         {filtered.map((s) => (
-          <Col key={s.id} span={8}>
+          <Col key={s.id} xs={12} sm={12} md={8} lg={8}>
             <Card
               hoverable
               size="small"
@@ -89,6 +89,8 @@ function inferServiceCategory(name = '') {
 }
 
 export default function POS() {
+  const screens = Grid.useBreakpoint();
+  const isNarrow = !screens.md;
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const { data: services, error: servicesError, setData: setServicesData } = useApi(servicesApi.list, null);
@@ -316,9 +318,20 @@ export default function POS() {
   };
 
   return (
-    <div style={{ padding: 16, height: 'calc(100vh - 52px)', display: 'flex', gap: 16, overflow: 'hidden' }}>
+    <div
+      style={{
+        padding: isNarrow ? '12px 10px' : 16,
+        height: isNarrow ? 'auto' : 'calc(100vh - 58px)',
+        minHeight: isNarrow ? 'calc(100vh - 52px)' : undefined,
+        display: 'flex',
+        flexDirection: isNarrow ? 'column' : 'row',
+        gap: isNarrow ? 12 : 16,
+        overflow: isNarrow ? 'visible' : 'hidden',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* 左：商品/服務選擇 */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflow: isNarrow ? 'visible' : 'auto', minWidth: 0 }}>
         {(servicesError || customersError || productsError || staffError) && (
           <Alert
             type="error"
@@ -379,13 +392,22 @@ export default function POS() {
       </div>
 
       {/* 右：購物車 */}
-      <div style={{ width: 360, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div
+        style={{
+          width: isNarrow ? '100%' : 360,
+          maxWidth: '100%',
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         <Card
           title={<Space><ShoppingCartOutlined /><span>結帳清單</span></Space>}
-          style={{ flex: 1, overflow: 'auto' }}
+          style={{ flex: 1, overflow: 'auto', minHeight: isNarrow ? 200 : undefined }}
           bodyStyle={{ padding: 10 }}
           extra={
-            <Select allowClear placeholder="選顧客" style={{ width: 130 }}
+            <Select allowClear placeholder="選顧客" style={{ width: isNarrow ? 110 : 130 }}
               value={customerId} onChange={setCustomerId} size="small">
               {customerList.map((c) => (
                 <Select.Option key={c.id} value={c.id}>

@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Layout, Menu, Typography, Avatar, Dropdown } from 'antd';
+import { useMemo, useState } from 'react';
+import { Layout, Menu, Typography, Avatar, Dropdown, Drawer, Button, Grid } from 'antd';
 import {
   DashboardOutlined, CalendarOutlined, ShoppingCartOutlined,
   TeamOutlined, UserOutlined, BarChartOutlined, InboxOutlined,
   LogoutOutlined, DownOutlined, ShopOutlined, TagOutlined,
-  AccountBookOutlined, DollarOutlined,
+  AccountBookOutlined, DollarOutlined, MenuOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -40,18 +40,12 @@ const MENU_GROUPS = [
   },
 ];
 
-export default function AppLayout({ children }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, logout } = useAuth();
-
-  // 展開選單 items，含分組標題
+function buildMenuItems(user, hideGroupHeaders) {
   const menuItems = [];
   MENU_GROUPS.forEach((group, gi) => {
     const visible = group.items.filter((m) => !user || m.roles.includes(user.role));
     if (!visible.length) return;
-    if (gi > 0 && !collapsed) {
+    if (gi > 0 && !hideGroupHeaders) {
       menuItems.push({ type: 'divider', key: `divider-${gi}` });
       menuItems.push({
         key: `group-${gi}`,
@@ -62,6 +56,26 @@ export default function AppLayout({ children }) {
     }
     visible.forEach((m) => menuItems.push(m));
   });
+  return menuItems;
+}
+
+export default function AppLayout({ children }) {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const menuItems = useMemo(() => buildMenuItems(user, collapsed), [user, collapsed]);
+  const drawerMenuItems = useMemo(() => buildMenuItems(user, false), [user]);
+
+  const handleMenuClick = ({ key }) => {
+    if (key.startsWith('group-') || key.startsWith('divider-')) return;
+    navigate(key);
+    setMobileMenuOpen(false);
+  };
 
   const currentLabel = MENU_GROUPS.flatMap((g) => g.items).find((m) => m.key === location.pathname)?.label ?? 'Beauty POS';
 
@@ -77,7 +91,8 @@ export default function AppLayout({ children }) {
       <div className="blob blob-2" />
       <div className="blob blob-3" />
 
-      {/* Sidebar */}
+      {/* Sidebar（平板以上） */}
+      {!isMobile && (
       <Sider
         collapsible collapsed={collapsed} onCollapse={setCollapsed}
         className="pos-sider" width={192}
@@ -111,55 +126,129 @@ export default function AppLayout({ children }) {
           mode="inline"
           selectedKeys={[location.pathname]}
           items={menuItems}
-          onClick={({ key }) => { if (!key.startsWith('group-') && key !== 'divider-0') navigate(key); }}
+          onClick={handleMenuClick}
           style={{ background: 'transparent', border: 'none', padding: '4px 0', flex: 1, overflow: 'hidden auto' }}
           inlineCollapsed={collapsed}
         />
       </Sider>
+      )}
 
-      <Layout style={{ position: 'relative', zIndex: 1 }}>
+      <Layout style={{ position: 'relative', zIndex: 1, minWidth: 0 }}>
         {/* Header */}
         <Header
           className="pos-header"
-          style={{ padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          style={{
+            padding: isMobile ? '0 12px' : '0 24px',
+            height: isMobile ? 52 : 58,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12, minWidth: 0 }}>
+            {isMobile && (
+              <Button
+                type="text"
+                icon={<MenuOutlined style={{ fontSize: 18 }} />}
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="開啟選單"
+              />
+            )}
             <div style={{ width: 3, height: 20, borderRadius: 2, background: 'linear-gradient(180deg,#6366f1,#8b5cf6)', flexShrink: 0 }} />
-            <Text style={{ fontSize: 16, fontWeight: 800, color: '#1e1b4b', letterSpacing: '-.01em' }}>{currentLabel}</Text>
+            <Text
+              ellipsis={{ tooltip: currentLabel }}
+              style={{
+                fontSize: isMobile ? 15 : 16,
+                fontWeight: 800,
+                color: '#1e1b4b',
+                letterSpacing: '-.01em',
+                margin: 0,
+                maxWidth: isMobile ? 'calc(100vw - 200px)' : undefined,
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              {currentLabel}
+            </Text>
           </div>
 
           {user && (
             <Dropdown menu={userMenu} trigger={['click']} placement="bottomRight">
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-                padding: '5px 14px', borderRadius: 24,
+                display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8, cursor: 'pointer',
+                padding: isMobile ? '5px 8px' : '5px 14px', borderRadius: 24,
                 background: 'rgba(99,102,241,0.07)',
                 border: '1px solid rgba(99,102,241,0.18)',
                 transition: 'all .2s',
+                flexShrink: 0,
               }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99,102,241,0.14)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.12)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(99,102,241,0.07)'; e.currentTarget.style.boxShadow = 'none'; }}
               >
-                <Avatar size={28} style={{
+                <Avatar size={isMobile ? 26 : 28} style={{
                   background: user.role === 'admin' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'linear-gradient(135deg,#06b6d4,#6366f1)',
                   fontSize: 12, fontWeight: 800,
                 }}>
                   {user.name[0]}
                 </Avatar>
-                <div style={{ lineHeight: 1.2 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>{user.name}</div>
-                  <div style={{ fontSize: 10, color: '#9ca3af' }}>{user.role === 'admin' ? '管理員' : '技師'}</div>
-                </div>
-                <DownOutlined style={{ fontSize: 10, color: '#6366f1' }} />
+                {!isMobile && (
+                  <>
+                    <div style={{ lineHeight: 1.2 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>{user.name}</div>
+                      <div style={{ fontSize: 10, color: '#9ca3af' }}>{user.role === 'admin' ? '管理員' : '技師'}</div>
+                    </div>
+                    <DownOutlined style={{ fontSize: 10, color: '#6366f1' }} />
+                  </>
+                )}
               </div>
             </Dropdown>
           )}
         </Header>
 
-        <Content style={{ overflow: 'auto', position: 'relative', zIndex: 1 }}>
+        <Content style={{ overflow: 'auto', position: 'relative', zIndex: 1, minHeight: 0 }}>
           {children}
         </Content>
       </Layout>
+
+      <Drawer
+        title={null}
+        placement="left"
+        width={280}
+        open={isMobile && mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        styles={{ body: { padding: 0, background: 'transparent' } }}
+        className="mobile-nav-drawer"
+      >
+        <div className="pos-sider mobile-sider-drawer-inner">
+          <div style={{
+            padding: '16px 16px 12px',
+            textAlign: 'center',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            marginBottom: 4,
+          }}>
+            <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 6 }}>💅</div>
+            <div style={{
+              fontSize: 15, fontWeight: 800, letterSpacing: '0.04em',
+              background: 'linear-gradient(135deg,#c4b5fd,#67e8f9)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            }}
+            >
+              Beauty POS
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2, letterSpacing: '.05em' }}>
+              美業管理系統
+            </div>
+          </div>
+          <Menu
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={drawerMenuItems}
+            onClick={handleMenuClick}
+            style={{ background: 'transparent', border: 'none', padding: '4px 0' }}
+          />
+        </div>
+      </Drawer>
     </Layout>
   );
 }

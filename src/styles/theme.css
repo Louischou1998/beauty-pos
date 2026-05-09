@@ -268,6 +268,45 @@ body {
 /* ── Page wrapper ─────────────────────────────────────────────── */
 .page-wrap { padding: 28px 28px; position: relative; z-index: 1; }
 
+/* 手機：縮小留白、表格可橫向捲動、標題字級 */
+@media (max-width: 767px) {
+  .page-wrap { padding: 14px 12px; }
+  .page-title-text { font-size: 18px !important; }
+  .page-heading { margin-bottom: 16px; }
+  .page-subtitle { font-size: 12px !important; }
+  .pos-header.ant-layout-header {
+    padding: 0 12px !important;
+    height: 52px !important;
+  }
+  .blob-1 { width: 220px; height: 220px; top: -80px; left: -80px; }
+  .blob-2 { width: 180px; height: 180px; }
+  .blob-3 { width: 140px; height: 140px; opacity: 0.1; }
+  .page-wrap .ant-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .page-wrap .ant-table { min-width: 520px; }
+  .stat-card { padding: 16px 14px !important; }
+  .stat-card .stat-icon-chip { width: 44px !important; height: 44px !important; font-size: 18px !important; }
+}
+
+/* 手機側欄抽屜：沿用側欄漸層 */
+.mobile-nav-drawer .ant-drawer-header { display: none !important; }
+.mobile-nav-drawer .ant-drawer-body {
+  padding: 0 !important;
+  height: 100%;
+  overflow: hidden;
+}
+.mobile-sider-drawer-inner {
+  min-height: 100%;
+  background: var(--grad-sidebar);
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;
+  overflow: hidden;
+}
+.mobile-sider-drawer-inner .ant-menu {
+  flex: 1;
+  overflow: auto !important;
+}
+
 /* Interactive utility */
 .interactive-pop {
   transition: transform .18s ease, box-shadow .2s ease, border-color .2s ease;
