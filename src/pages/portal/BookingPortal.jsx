@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Card, Steps, Button, Form, Input, Typography,
   Space, Tag, Result, Alert, Row, Col, Avatar,
@@ -8,14 +8,14 @@ import {
   CheckCircleOutlined, PhoneOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
+import dayjs from 'dayjs';
 import { parseApiError } from '../../utils/apiError';
 
 const { Title, Text } = Typography;
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
-const CATEGORIES = ['全部', '美髮'];
-const CAT_COLORS = { 美髮: 'purple' };
+const CAT_COLORS = { 美髮: 'purple', 未分類: 'default', 染燙: 'magenta', 護理: 'cyan', 造型: 'geekblue' };
 
 async function fetchPortal(path, params = {}) {
   const res = await axios.get(`${BASE}/portal/${path}`, { params });
@@ -36,13 +36,18 @@ export default function BookingPortal() {
 
   const [selectedService, setSelectedService] = useState(null);
   const [selectedStaff, setSelectedStaff] = useState(null);
-  const [selectedDate, setSelectedDate] = useState('2026-05-08');
+  const [selectedDate, setSelectedDate] = useState(() => dayjs().format('YYYY-MM-DD'));
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [catFilter, setCatFilter] = useState('全部');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
   const displaySlots = selectedService ? slots : [];
+
+  const categoryOptions = useMemo(() => {
+    const names = [...new Set((services ?? []).map((s) => s.category).filter(Boolean))];
+    return ['全部', ...names.sort((a, b) => a.localeCompare(b, 'zh-Hant'))];
+  }, [services]);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +58,7 @@ export default function BookingPortal() {
           fetchPortal('staff'),
         ]);
         if (cancelled) return;
-        setServices((servicesData ?? []).map((s) => ({ ...s, category: '美髮' })));
+        setServices(servicesData ?? []);
         setStaff(staffData ?? []);
       } catch (err) {
         if (!cancelled) setLoadError(parseApiError(err, '載入預約資料失敗').message);
@@ -139,7 +144,7 @@ export default function BookingPortal() {
           {step === 0 && (
             <div>
               <Space wrap style={{ marginBottom: 16 }}>
-                {CATEGORIES.map((c) => (
+                {categoryOptions.map((c) => (
                   <Button key={c} type={catFilter === c ? 'primary' : 'default'}
                     size="small" onClick={() => setCatFilter(c)}>{c}</Button>
                 ))}
@@ -158,12 +163,12 @@ export default function BookingPortal() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <Tag color={CAT_COLORS[s.category]} style={{ marginBottom: 4 }}>{s.category}</Tag>
+                          <Tag color={CAT_COLORS[s.category] ?? 'purple'} style={{ marginBottom: 4 }}>{s.category}</Tag>
                           <div style={{ fontWeight: 600, fontSize: 15 }}>{s.name}</div>
                           <Text type="secondary" style={{ fontSize: 12 }}>{s.duration} 分鐘</Text>
                         </div>
                         <div style={{ fontSize: 18, fontWeight: 700, color: '#722ed1' }}>
-                          ${s.price.toLocaleString()}
+                          ${Number(s.price).toLocaleString()}
                         </div>
                       </div>
                     </Card>
@@ -177,7 +182,7 @@ export default function BookingPortal() {
           {step === 1 && (
             <div>
               <Alert type="info" showIcon style={{ marginBottom: 16 }}
-                message={`已選：${selectedService?.name}｜${selectedService?.duration} 分鐘｜$${selectedService?.price}`} />
+                message={`已選：${selectedService?.name}｜${selectedService?.duration} 分鐘｜$${Number(selectedService?.price ?? 0).toLocaleString()}`} />
 
               <div style={{ marginBottom: 16 }}>
                 <Text strong>指定技師（可不選）</Text>

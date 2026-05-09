@@ -11,7 +11,7 @@ import { parseApiError } from '../../utils/apiError';
 const { Text } = Typography;
 
 export default function Payroll() {
-  const [month, setMonth] = useState(dayjs('2026-05'));
+  const [month, setMonth] = useState(() => dayjs());
   const [detailStaff, setDetailStaff] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const monthStr = month.format('YYYY-MM');

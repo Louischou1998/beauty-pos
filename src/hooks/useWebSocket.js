@@ -1,8 +1,16 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-const WS_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1')
-  .replace(/^http/, 'ws')
-  .replace('/api/v1', '');
+/** 與 API 不同網域時可設 VITE_WS_ORIGIN（例：https://api.example.com，不含路徑） */
+function wsBaseUrl() {
+  const explicit = import.meta.env.VITE_WS_ORIGIN;
+  if (explicit) {
+    return String(explicit).replace(/^http/, 'ws');
+  }
+  const apiBase = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1').replace(/\/api\/v1\/?$/, '');
+  return apiBase.replace(/^http/, 'ws');
+}
+
+const WS_BASE = wsBaseUrl();
 
 /**
  * Connects to a WebSocket endpoint and calls onMessage on each event.

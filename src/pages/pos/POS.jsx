@@ -105,7 +105,7 @@ export default function POS() {
   const [productForm] = Form.useForm();
 
   const [cart, setCart] = useState([]);
-  const [svcCat, setSvcCat] = useState('美髮');
+  const [svcCat, setSvcCat] = useState('全部');
   const [prdCat, setPrdCat] = useState('全部');
   const [customerId, setCustomerId] = useState(null);
   const [couponCode, setCouponCode] = useState('');

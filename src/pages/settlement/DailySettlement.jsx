@@ -19,7 +19,7 @@ const METHOD_CONFIG = {
 };
 
 export default function DailySettlement() {
-  const [date, setDate] = useState(dayjs('2026-05-07'));
+  const [date, setDate] = useState(() => dayjs());
   const dateStr = date.format('YYYY-MM-DD');
 
   const { data: summary, loading: l1, error: summaryError } = useApi(
