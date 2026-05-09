@@ -2,13 +2,15 @@ import { useState } from 'react';
 import {
   Card, Col, Row, Button, Tag, Typography, Divider,
   Select, Space, Empty, Modal, message, Spin, Result,
-  Input, Tabs, InputNumber, Alert,
+  Input, Tabs, InputNumber, Alert, Form, Popconfirm,
 } from 'antd';
 import {
   DeleteOutlined, ShoppingCartOutlined, CheckCircleOutlined,
   GiftOutlined, PlusOutlined, TagOutlined, MinusCircleOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { useApi } from '../../hooks/useApi';
+import { useAuth } from '../../context/AuthContext';
 import { servicesApi } from '../../api/services';
 import { customersApi } from '../../api/customers';
 import { productsApi } from '../../api/products';
@@ -28,7 +30,10 @@ const PAYMENT_METHODS = [
   { value: 'store_value', label: '儲值金' },
 ];
 
-function ItemGrid({ items, category, categories, onCategoryChange, onAdd, labelKey = 'category' }) {
+function ItemGrid({
+  items, category, categories, onCategoryChange, onAdd, labelKey = 'category',
+  canManage, onEdit, onDelete,
+}) {
   const filtered = category === '全部' ? items : items.filter((s) => s[labelKey] === category);
   return (
     <>
@@ -40,11 +45,30 @@ function ItemGrid({ items, category, categories, onCategoryChange, onAdd, labelK
       <Row gutter={[10, 10]}>
         {filtered.map((s) => (
           <Col key={s.id} span={8}>
-            <Card hoverable size="small" onClick={() => onAdd(s)}
-              style={{ cursor: 'pointer', textAlign: 'center' }} bodyStyle={{ padding: 10 }}>
+            <Card
+              hoverable
+              size="small"
+              onClick={() => onAdd(s)}
+              style={{ cursor: 'pointer', textAlign: 'center', position: 'relative' }}
+              bodyStyle={{ padding: 10 }}
+            >
+              {canManage && (
+                <Space
+                  size={2}
+                  style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button type="default" size="small" icon={<EditOutlined />} onClick={() => onEdit(s)} />
+                  <Popconfirm title="確認刪除？" description="將下架此項目" onConfirm={() => onDelete(s)} okText="確認" cancelText="取消">
+                    <Button type="default" size="small" danger icon={<DeleteOutlined />} />
+                  </Popconfirm>
+                </Space>
+              )}
               <Tag color="blue" style={{ marginBottom: 4, fontSize: 11 }}>{s[labelKey]}</Tag>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{s.name}</div>
-              {s.duration && <Text type="secondary" style={{ fontSize: 11 }}>{s.duration} 分鐘</Text>}
+              {s.duration != null && s.duration > 0 && (
+                <Text type="secondary" style={{ fontSize: 11 }}>{s.duration} 分鐘</Text>
+              )}
               {s.stock !== undefined && (
                 <div><Text type="secondary" style={{ fontSize: 11 }}>庫存 {s.stock}</Text></div>
               )}
@@ -65,10 +89,20 @@ function inferServiceCategory(name = '') {
 }
 
 export default function POS() {
-  const { data: services, error: servicesError } = useApi(servicesApi.list, null);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const { data: services, error: servicesError, setData: setServicesData } = useApi(servicesApi.list, null);
+  const { data: serviceCategories } = useApi(servicesApi.listCategories, null);
   const { data: customers, error: customersError } = useApi(customersApi.list, null);
-  const { data: products, error: productsError } = useApi(productsApi.list, null);
+  const { data: products, error: productsError, setData: setProductsData } = useApi(productsApi.list, null);
   const { data: staffs, error: staffError } = useApi(staffApi.list, null);
+
+  const [serviceModalOpen, setServiceModalOpen] = useState(false);
+  const [serviceEditing, setServiceEditing] = useState(null);
+  const [serviceForm] = Form.useForm();
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [productEditing, setProductEditing] = useState(null);
+  const [productForm] = Form.useForm();
 
   const [cart, setCart] = useState([]);
   const [svcCat, setSvcCat] = useState('美髮');
@@ -91,8 +125,102 @@ export default function POS() {
   const staffList = staffs ?? [];
   const displayServiceList = serviceList.map((s) => ({
     ...s,
-    category: s.category ?? inferServiceCategory(s.name),
+    category: inferServiceCategory(s.name),
   }));
+
+  const openAddService = () => {
+    setServiceEditing(null);
+    serviceForm.resetFields();
+    setServiceModalOpen(true);
+  };
+  const openEditService = (row) => {
+    setServiceEditing(row);
+    serviceForm.setFieldsValue({
+      name: row.name,
+      category_id: row.category_id ?? undefined,
+      duration: row.duration,
+      price: row.price,
+    });
+    setServiceModalOpen(true);
+  };
+  const saveService = async (values) => {
+    const payload = {
+      name: values.name,
+      category_id: values.category_id ?? null,
+      duration: values.duration,
+      price: values.price,
+    };
+    try {
+      if (serviceEditing) {
+        const u = await servicesApi.update(serviceEditing.id, payload);
+        setServicesData((prev) => (prev ?? []).map((x) => (x.id === serviceEditing.id ? { ...x, ...u } : x)));
+        message.success('服務已更新');
+      } else {
+        const c = await servicesApi.create(payload);
+        setServicesData((prev) => [...(prev ?? []), c]);
+        message.success('服務已新增');
+      }
+      setServiceModalOpen(false);
+      serviceForm.resetFields();
+    } catch (err) {
+      const { message: errMsg } = parseApiError(err, serviceEditing ? '更新失敗' : '新增失敗');
+      message.error(errMsg);
+    }
+  };
+  const deleteServiceRow = async (row) => {
+    try {
+      await servicesApi.remove(row.id);
+      setServicesData((prev) => (prev ?? []).filter((x) => x.id !== row.id));
+      message.success('已刪除');
+    } catch (err) {
+      message.error(parseApiError(err, '刪除失敗').message);
+    }
+  };
+
+  const openAddProduct = () => {
+    setProductEditing(null);
+    productForm.resetFields();
+    setProductModalOpen(true);
+  };
+  const openEditProduct = (row) => {
+    setProductEditing(row);
+    productForm.setFieldsValue({
+      name: row.name,
+      category: row.category,
+      price: row.price,
+      cost: row.cost,
+      stock: row.stock,
+      barcode: row.barcode,
+    });
+    setProductModalOpen(true);
+  };
+  const saveProduct = async (values) => {
+    try {
+      if (productEditing) {
+        const u = await productsApi.update(productEditing.id, values);
+        setProductsData((prev) => (prev ?? []).map((x) => (x.id === productEditing.id ? u : x)));
+        message.success('商品已更新');
+      } else {
+        const c = await productsApi.create(values);
+        setProductsData((prev) => [...(prev ?? []), c]);
+        message.success('商品已新增');
+      }
+      setProductModalOpen(false);
+      productForm.resetFields();
+    } catch (err) {
+      const { message: errMsg } = parseApiError(err, productEditing ? '更新失敗' : '新增失敗');
+      message.error(errMsg);
+    }
+  };
+  const deleteProductRow = async (row) => {
+    try {
+      await productsApi.remove(row.id);
+      setProductsData((prev) => (prev ?? []).filter((x) => x.id !== row.id));
+      message.success('已刪除');
+    } catch (err) {
+      message.error(parseApiError(err, '刪除失敗').message);
+    }
+  };
 
   const addToCart = (item, type) => {
     const key = `${type}_${item.id}`;
@@ -204,16 +332,46 @@ export default function POS() {
             {
               key: 'service', label: '服務項目',
               children: (
-                <ItemGrid items={displayServiceList} category={svcCat} categories={SERVICE_CATEGORIES}
-                  labelKey="category"
-                  onCategoryChange={setSvcCat} onAdd={(s) => addToCart(s, 'service')} />
+                <>
+                  {isAdmin && (
+                    <div style={{ marginBottom: 12 }}>
+                      <Button type="primary" icon={<PlusOutlined />} size="small" onClick={openAddService}>新增服務</Button>
+                    </div>
+                  )}
+                  <ItemGrid
+                    items={displayServiceList}
+                    category={svcCat}
+                    categories={SERVICE_CATEGORIES}
+                    labelKey="category"
+                    onCategoryChange={setSvcCat}
+                    onAdd={(s) => addToCart(s, 'service')}
+                    canManage={isAdmin}
+                    onEdit={openEditService}
+                    onDelete={deleteServiceRow}
+                  />
+                </>
               ),
             },
             {
               key: 'product', label: '商品銷售',
               children: (
-                <ItemGrid items={productList} category={prdCat} categories={PRODUCT_CATEGORIES}
-                  onCategoryChange={setPrdCat} onAdd={(p) => addToCart(p, 'product')} />
+                <>
+                  {isAdmin && (
+                    <div style={{ marginBottom: 12 }}>
+                      <Button type="primary" icon={<PlusOutlined />} size="small" onClick={openAddProduct}>新增商品</Button>
+                    </div>
+                  )}
+                  <ItemGrid
+                    items={productList}
+                    category={prdCat}
+                    categories={PRODUCT_CATEGORIES}
+                    onCategoryChange={setPrdCat}
+                    onAdd={(p) => addToCart(p, 'product')}
+                    canManage={isAdmin}
+                    onEdit={openEditProduct}
+                    onDelete={deleteProductRow}
+                  />
+                </>
               ),
             },
           ]}
@@ -379,6 +537,66 @@ export default function POS() {
             showIcon size="small"
           />
         )}
+      </Modal>
+
+      <Modal
+        title={serviceEditing ? '編輯服務' : '新增服務'}
+        open={serviceModalOpen}
+        onCancel={() => { setServiceModalOpen(false); serviceForm.resetFields(); }}
+        onOk={() => serviceForm.submit()}
+        okText="儲存"
+        cancelText="取消"
+      >
+        <Form form={serviceForm} layout="vertical" onFinish={saveService}>
+          <Form.Item name="name" label="服務名稱" rules={[{ required: true, message: '請輸入名稱' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="category_id" label="服務分類（後台）">
+            <Select allowClear placeholder="選擇資料庫分類（可留空）" options={(serviceCategories ?? []).map((c) => ({ label: c.name, value: c.id }))} />
+          </Form.Item>
+          <Form.Item name="duration" label="時長（分鐘）" rules={[{ required: true, message: '請輸入時長' }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="price" label="價格" rules={[{ required: true, message: '請輸入價格' }]}>
+            <InputNumber min={0} prefix="$" style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={productEditing ? '編輯商品' : '新增商品'}
+        open={productModalOpen}
+        onCancel={() => { setProductModalOpen(false); productForm.resetFields(); }}
+        onOk={() => productForm.submit()}
+        okText="儲存"
+        cancelText="取消"
+      >
+        <Form form={productForm} layout="vertical" onFinish={saveProduct}>
+          <Form.Item name="name" label="商品名稱" rules={[{ required: true, message: '請輸入名稱' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="category" label="分類">
+            <Select placeholder="選擇分類">
+              {PRODUCT_CATEGORIES.filter((c) => c !== '全部').map((c) => (
+                <Select.Option key={c} value={c}>{c}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Space style={{ width: '100%' }} size="middle">
+            <Form.Item name="price" label="售價" rules={[{ required: true, message: '請輸入售價' }]} style={{ flex: 1 }}>
+              <InputNumber min={0} prefix="$" style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="cost" label="成本" style={{ flex: 1 }}>
+              <InputNumber min={0} prefix="$" style={{ width: '100%' }} />
+            </Form.Item>
+          </Space>
+          <Form.Item name="stock" label="庫存">
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="barcode" label="條碼">
+            <Input />
+          </Form.Item>
+        </Form>
       </Modal>
 
       {/* 收據 Modal */}
