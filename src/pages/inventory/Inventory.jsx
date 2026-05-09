@@ -11,6 +11,14 @@ import {
 import { useApi } from '../../hooks/useApi';
 import { inventoryApi } from '../../api/inventory';
 import { parseApiError } from '../../utils/apiError';
+import ExcelImportButtons from '../../components/ExcelImportButtons';
+import {
+  parseExcelFile,
+  downloadXlsxTemplate,
+  rowToInventory,
+  INVENTORY_TEMPLATE_HEADERS,
+  importRowsSequential,
+} from '../../utils/excelImport';
 
 const { Text } = Typography;
 
@@ -30,6 +38,7 @@ export default function Inventory() {
   const [historyData, setHistoryData] = useState([]);
   const [form] = Form.useForm();
   const [useForm] = Form.useForm();
+  const [importing, setImporting] = useState(false);
 
   const lowStockItems = (items ?? []).filter((i) => i.is_low);
   const filteredItems = useMemo(() => {
@@ -95,6 +104,44 @@ export default function Inventory() {
     try { await inventoryApi.remove(id); } catch (err) { message.warning(parseApiError(err, '刪除失敗').message); }
     setItems((prev) => prev.filter((i) => i.id !== id));
     message.success('已刪除');
+  };
+
+  const downloadInventoryTemplate = () => {
+    downloadXlsxTemplate(
+      '庫存匯入範本.xlsx',
+      INVENTORY_TEMPLATE_HEADERS,
+      [['範例染劑', '美髮', '瓶', 12, 3, 80]],
+    );
+  };
+
+  const handleInventoryExcelImport = async (file) => {
+    setImporting(true);
+    try {
+      const rows = await parseExcelFile(file);
+      const payloads = rows
+        .map(rowToInventory)
+        .filter((p) => p.name && Number.isFinite(p.quantity));
+      if (payloads.length === 0) {
+        message.warning('沒有可匯入的資料（請確認「品項名稱」「現有庫存」）');
+        return;
+      }
+      const { ok, errors } = await importRowsSequential(payloads, async (payload) => {
+        const created = await inventoryApi.create(payload);
+        setItems((prev) => [
+          ...(prev ?? []),
+          { ...created, is_low: Number(created.quantity) <= Number(created.low_stock_threshold) },
+        ]);
+      });
+      if (errors.length) {
+        message.warning(`匯入完成：成功 ${ok} 筆，失敗 ${errors.length} 筆`);
+      } else {
+        message.success(`已匯入 ${ok} 筆庫存品項`);
+      }
+    } catch (err) {
+      message.error(err?.message || '無法解析 Excel');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const columns = [
@@ -169,14 +216,21 @@ export default function Inventory() {
         />
       )}
 
-      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }} align="center">
         <Space>
           <div className="page-title-text">庫存耗材</div>
           {lowStockItems.length > 0 && <Badge count={lowStockItems.length} color="red" className="pulse-dot" />}
         </Space>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditItem(null); form.resetFields(); setAddOpen(true); }}>
-          新增品項
-        </Button>
+        <Space wrap>
+          <ExcelImportButtons
+            disabled={importing || loading}
+            onDownloadTemplate={downloadInventoryTemplate}
+            onSelectFile={handleInventoryExcelImport}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditItem(null); form.resetFields(); setAddOpen(true); }}>
+            新增品項
+          </Button>
+        </Space>
       </Space>
 
       <Space wrap style={{ marginBottom: 12 }}>

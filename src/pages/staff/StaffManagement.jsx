@@ -8,6 +8,14 @@ import dayjs from 'dayjs';
 import { useApi } from '../../hooks/useApi';
 import { staffApi } from '../../api/staff';
 import { parseApiError } from '../../utils/apiError';
+import ExcelImportButtons from '../../components/ExcelImportButtons';
+import {
+  parseExcelFile,
+  downloadXlsxTemplate,
+  rowToStaff,
+  STAFF_TEMPLATE_HEADERS,
+  importRowsSequential,
+} from '../../utils/excelImport';
 
 const { Text } = Typography;
 
@@ -38,6 +46,7 @@ export default function StaffManagement() {
   const [selectedShiftType, setSelectedShiftType] = useState('full');
   const [scheduleMap, setScheduleMap] = useState({});
   const [form] = Form.useForm();
+  const [importing, setImporting] = useState(false);
 
   const openAdd = () => { setEditing(null); form.resetFields(); setModalOpen(true); };
   const openEdit = (r) => { setEditing(r); form.setFieldsValue(r); setModalOpen(true); };
@@ -94,6 +103,41 @@ export default function StaffManagement() {
     try { await staffApi.remove(id); } catch (err) { message.warning(parseApiError(err, '刪除失敗').message); }
     setStaffList((prev) => prev.filter((s) => s.id !== id));
     message.success('已刪除');
+  };
+
+  const downloadStaffTemplate = () => {
+    downloadXlsxTemplate(
+      '員工匯入範本.xlsx',
+      STAFF_TEMPLATE_HEADERS,
+      [['李小華', '0922000111', '美髮,染髮', 35, '#6366f1']],
+    );
+  };
+
+  const handleStaffExcelImport = async (file) => {
+    setImporting(true);
+    try {
+      const rows = await parseExcelFile(file);
+      const payloads = rows
+        .map(rowToStaff)
+        .filter((p) => p.name && p.skills.length > 0);
+      if (payloads.length === 0) {
+        message.warning('沒有可匯入的資料（請確認「姓名」「技能」，技能可用逗號分隔）');
+        return;
+      }
+      const { ok, errors } = await importRowsSequential(payloads, async (payload) => {
+        const created = await staffApi.create(payload);
+        setStaffList((prev) => [...(prev ?? []), created]);
+      });
+      if (errors.length) {
+        message.warning(`匯入完成：成功 ${ok} 筆，失敗 ${errors.length} 筆`);
+      } else {
+        message.success(`已匯入 ${ok} 筆技師`);
+      }
+    } catch (err) {
+      message.error(err?.message || '無法解析 Excel');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const dateCellRender = (value) => {
@@ -166,9 +210,16 @@ export default function StaffManagement() {
   return (
     <div className="page-wrap">
       {staffError && <Alert type="error" message="員工資料載入失敗，請檢查 API 與登入狀態" showIcon style={{ marginBottom: 12 }} />}
-      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }} align="center">
         <div className="page-title-text">員工管理</div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增技師</Button>
+        <Space wrap>
+          <ExcelImportButtons
+            disabled={importing || loading}
+            onDownloadTemplate={downloadStaffTemplate}
+            onSelectFile={handleStaffExcelImport}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增技師</Button>
+        </Space>
       </Space>
 
       <Table dataSource={staffList ?? []} columns={columns} rowKey="id" loading={loading} />

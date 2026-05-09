@@ -1,4 +1,12 @@
 import { useState } from 'react';
+import ExcelImportButtons from '../../components/ExcelImportButtons';
+import {
+  parseExcelFile,
+  downloadXlsxTemplate,
+  rowToCustomer,
+  CUSTOMER_TEMPLATE_HEADERS,
+  importRowsSequential,
+} from '../../utils/excelImport';
 import {
   Table, Tag, Button, Modal, Form, Input, Select, InputNumber,
   Space, Typography, Tabs, Descriptions, Statistic, Row, Col,
@@ -46,6 +54,7 @@ export default function CustomerManagement() {
   const [activeTab, setActiveTab] = useState('list');
   const [form] = Form.useForm();
   const [topUpForm] = Form.useForm();
+  const [importing, setImporting] = useState(false);
 
   const openAdd = () => { setEditing(null); form.resetFields(); setModalOpen(true); };
   const openEdit = (r) => { setEditing(r); form.setFieldsValue(r); setModalOpen(true); };
@@ -100,6 +109,39 @@ export default function CustomerManagement() {
     try { await customersApi.remove(id); } catch (err) { message.warning(parseApiError(err, '刪除失敗').message); }
     setCustomers((p) => p.filter((c) => c.id !== id));
     message.success('已刪除');
+  };
+
+  const downloadCustomerTemplate = () => {
+    downloadXlsxTemplate(
+      '顧客匯入範本.xlsx',
+      CUSTOMER_TEMPLATE_HEADERS,
+      [['王小美', '0912345678', 'demo@mail.com', '一般']],
+    );
+  };
+
+  const handleCustomerExcelImport = async (file) => {
+    setImporting(true);
+    try {
+      const rows = await parseExcelFile(file);
+      const payloads = rows.map(rowToCustomer).filter((p) => p.name && p.phone);
+      if (payloads.length === 0) {
+        message.warning('沒有可匯入的資料（請確認「姓名」「電話」）');
+        return;
+      }
+      const { ok, errors } = await importRowsSequential(payloads, async (payload) => {
+        const c = await customersApi.create(payload);
+        setCustomers((p) => [...(p ?? []), c]);
+      });
+      if (errors.length) {
+        message.warning(`匯入完成：成功 ${ok} 筆，失敗 ${errors.length} 筆（常見原因：電話重複）`);
+      } else {
+        message.success(`已匯入 ${ok} 筆顧客`);
+      }
+    } catch (err) {
+      message.error(err?.message || '無法解析 Excel');
+    } finally {
+      setImporting(false);
+    }
   };
 
   // 回訪提醒列表
@@ -166,9 +208,16 @@ export default function CustomerManagement() {
     <div className="page-wrap">
       {customersError && <Alert type="error" message="顧客資料載入失敗，請確認 API 與登入狀態" showIcon style={{ marginBottom: 12 }} />}
 
-      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }} align="center">
         <div className="page-title-text">顧客管理</div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增顧客</Button>
+        <Space wrap>
+          <ExcelImportButtons
+            disabled={importing || loading}
+            onDownloadTemplate={downloadCustomerTemplate}
+            onSelectFile={handleCustomerExcelImport}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增顧客</Button>
+        </Space>
       </Space>
 
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={[

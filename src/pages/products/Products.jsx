@@ -7,12 +7,21 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, BarcodeOutlined } from '@an
 import { useApi } from '../../hooks/useApi';
 import { productsApi } from '../../api/products';
 import { parseApiError } from '../../utils/apiError';
+import ExcelImportButtons from '../../components/ExcelImportButtons';
+import {
+  parseExcelFile,
+  downloadXlsxTemplate,
+  rowToProduct,
+  PRODUCT_TEMPLATE_HEADERS,
+  importRowsSequential,
+} from '../../utils/excelImport';
 
 const { Text } = Typography;
 const CATEGORIES = ['洗髮', '護髮', '造型', '染燙', '頭皮保養'];
 
 export default function Products() {
   const { data: products, loading, error, setData } = useApi(productsApi.list, null);
+  const [importing, setImporting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
@@ -45,6 +54,39 @@ export default function Products() {
       message.success('已刪除');
     } catch (err) {
       message.error(parseApiError(err, '刪除失敗').message);
+    }
+  };
+
+  const downloadProductTemplate = () => {
+    downloadXlsxTemplate(
+      '商品匯入範本.xlsx',
+      PRODUCT_TEMPLATE_HEADERS,
+      [['範例洗髮精', '洗髮', 680, 220, 30, 'DEMO001']],
+    );
+  };
+
+  const handleExcelImport = async (file) => {
+    setImporting(true);
+    try {
+      const rows = await parseExcelFile(file);
+      const payloads = rows.map(rowToProduct).filter((p) => p.name && Number.isFinite(p.price));
+      if (payloads.length === 0) {
+        message.warning('沒有可匯入的資料（請確認「商品名稱」「售價」欄位）');
+        return;
+      }
+      const { ok, errors } = await importRowsSequential(payloads, async (payload) => {
+        const c = await productsApi.create(payload);
+        setData((p) => [...(p ?? []), c]);
+      });
+      if (errors.length) {
+        message.warning(`匯入完成：成功 ${ok} 筆，失敗 ${errors.length} 筆（請檢查重複或欄位）`);
+      } else {
+        message.success(`已匯入 ${ok} 筆商品`);
+      }
+    } catch (err) {
+      message.error(err?.message || '無法解析 Excel');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -88,9 +130,16 @@ export default function Products() {
           style={{ marginBottom: 12 }}
         />
       )}
-      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+      <Space style={{ justifyContent: 'space-between', width: '100%', marginBottom: 16 }} align="center">
         <div className="page-title-text">商品管理</div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增商品</Button>
+        <Space wrap>
+          <ExcelImportButtons
+            disabled={importing || loading}
+            onDownloadTemplate={downloadProductTemplate}
+            onSelectFile={handleExcelImport}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增商品</Button>
+        </Space>
       </Space>
       <Table dataSource={products ?? []} columns={columns} rowKey="id" loading={loading} />
 
