@@ -256,22 +256,16 @@ export default function BookingCalendar() {
     const { items, startTime, bookingDate } = allValues;
     if (!items?.length || !startTime || !bookingDate) { setConflictWarning(null); return; }
     const dateStr = bookingDate.format('YYYY-MM-DD');
-    let curMin = toMinutes(startTime.format('HH:mm'));
+    const startStr = startTime.format('HH:mm');
+    const startMin = toMinutes(startStr);
     for (const item of items) {
-      if (!item?.serviceId) continue;
+      if (!item?.serviceId || !item?.staffId) continue;
       const service = serviceList.find((s) => s.id === item.serviceId);
       if (!service) continue;
-      const endMin = curMin + service.duration;
-      if (!isValidTimeWindow(curMin, endMin)) {
-        setConflictWarning('預約時間超出營業時間 (09:00–22:00)'); return;
+      const endMin = startMin + service.duration;
+      if (hasConflict(bookings, item.staffId, dateStr, startStr, fromMinutes(endMin))) {
+        setConflictWarning(`${startStr} 與現有預約衝突`); return;
       }
-      if (item.staffId && !canBookBySchedule(item.staffId, dateStr, curMin, endMin)) {
-        setConflictWarning('此技師該日期班別不可預約此時段（含休假）'); return;
-      }
-      if (item.staffId && hasConflict(bookings, item.staffId, dateStr, fromMinutes(curMin), fromMinutes(endMin))) {
-        setConflictWarning(`${fromMinutes(curMin)}–${fromMinutes(endMin)} 與現有預約衝突`); return;
-      }
-      curMin = endMin;
     }
     setConflictWarning(null);
   };
@@ -297,12 +291,6 @@ export default function BookingCalendar() {
       const endMin = curMin + service.duration;
       const curStr = fromMinutes(curMin);
       const endStr = fromMinutes(endMin);
-      if (!isValidTimeWindow(curMin, endMin)) {
-        setConflictWarning(`「${service.name}」時間超出營業時間 (09:00–22:00)`); return;
-      }
-      if (!canBookBySchedule(staff.id, bookingDateStr, curMin, endMin)) {
-        setConflictWarning(`「${service.name}」：${staff.name} 該時段不可預約`); return;
-      }
       if (hasConflict(bookings, staff.id, bookingDateStr, curStr, endStr)) {
         setConflictWarning(`${staff.name} 在 ${curStr}–${endStr} 已有預約，請換時段或技師`); return;
       }
