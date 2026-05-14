@@ -279,7 +279,7 @@ export default function BookingCalendar() {
     }
     const bookingDateStr = bookingDate.format('YYYY-MM-DD');
     const bookingItems = [];
-    let curTime = startTime
+    const startDateTime = startTime
       .year(bookingDate.year()).month(bookingDate.month()).date(bookingDate.date())
       .second(0).millisecond(0);
 
@@ -287,21 +287,17 @@ export default function BookingCalendar() {
       const service = serviceList.find((s) => s.id === item.serviceId);
       const staff = staffList.find((s) => s.id === item.staffId);
       if (!service || !staff) { message.error('服務或技師資料不完整，請重新整理'); return; }
-      const curMin = curTime.hour() * 60 + curTime.minute();
-      const endMin = curMin + service.duration;
-      const curStr = fromMinutes(curMin);
-      const endStr = fromMinutes(endMin);
-      if (hasConflict(bookings, staff.id, bookingDateStr, curStr, endStr)) {
-        setConflictWarning(`${staff.name} 在 ${curStr}–${endStr} 已有預約，請換時段或技師`); return;
+      const startStr = startTime.format('HH:mm');
+      const endStr = fromMinutes(toMinutes(startStr) + service.duration);
+      if (hasConflict(bookings, staff.id, bookingDateStr, startStr, endStr)) {
+        setConflictWarning(`${staff.name} 在此時段已有預約，請換時段或技師`); return;
       }
       bookingItems.push({
         service_id: service.id,
         staff_id: staff.id,
-        start_at: curTime.toISOString(),
+        start_at: startDateTime.toISOString(),
         price: Number(service.price),
       });
-      // 下一個服務接在這個結束後
-      curTime = curTime.add(service.duration, 'minute');
     }
 
     try {
