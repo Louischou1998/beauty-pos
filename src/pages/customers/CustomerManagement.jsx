@@ -11,15 +11,18 @@ import {
   Table, Tag, Button, Modal, Form, Input, Select, InputNumber,
   Space, Typography, Tabs, Descriptions, Statistic, Row, Col,
   Popconfirm, Alert, message, Badge, Tooltip, Timeline, Spin,
+  DatePicker, Card, Empty,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, WalletOutlined, GiftOutlined,
-  UserOutlined, WarningOutlined, BellOutlined,
+  UserOutlined, WarningOutlined, BellOutlined, ScissorOutlined,
+  DeleteOutlined, CopyOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useApi } from '../../hooks/useApi';
 import { customersApi } from '../../api/customers';
 import { staffApi } from '../../api/staff';
+import { hairRecordsApi } from '../../api/hairRecords';
 import { parseApiError } from '../../utils/apiError';
 
 const { Text } = Typography;
@@ -30,12 +33,217 @@ const LEVELS = [
   { value: 'VIP', color: 'purple' },
 ];
 
+const HAIR_CONDITIONS = ['正常', '乾燥', '受損', '漂染後', '油性', '混合'];
+
 function revisitStatus(customer) {
   if (!customer.last_visit_at) return null;
   const lastVisit = dayjs(customer.last_visit_at);
   const dueDate = lastVisit.add(customer.revisit_days ?? 30, 'day');
   const daysLeft = dueDate.diff(dayjs(), 'day');
   return { dueDate, daysLeft, overdue: daysLeft < 0 };
+}
+
+function HairRecordTab({ customerId, staffList }) {
+  const [records, setRecords] = useState(null);
+  const [loadErr, setLoadErr] = useState(null);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form] = Form.useForm();
+
+  const loadRecords = async () => {
+    if (records !== null) return;
+    setLoadingRecords(true);
+    try {
+      const data = await hairRecordsApi.list(customerId);
+      setRecords(data ?? []);
+    } catch (err) {
+      setLoadErr(parseApiError(err, '讀取失敗').message);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
+
+  if (records === null && !loadingRecords && !loadErr) loadRecords();
+
+  const openAdd = () => {
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({ record_date: dayjs() });
+    setFormOpen(true);
+  };
+
+  const openEdit = (r) => {
+    setEditing(r);
+    form.setFieldsValue({
+      record_date: dayjs(r.record_date),
+      staff_id: r.staff_id ?? undefined,
+      service_names: r.service_names,
+      color_formula: r.color_formula,
+      hair_condition: r.hair_condition || undefined,
+      notes: r.notes,
+    });
+    setFormOpen(true);
+  };
+
+  const handleSave = async (values) => {
+    setSaving(true);
+    const payload = {
+      ...values,
+      record_date: values.record_date.format('YYYY-MM-DD'),
+      staff_id: values.staff_id ?? null,
+    };
+    try {
+      if (editing) {
+        const updated = await hairRecordsApi.update(customerId, editing.id, payload);
+        setRecords((prev) => prev.map((r) => r.id === editing.id ? updated : r));
+        message.success('已更新');
+      } else {
+        const created = await hairRecordsApi.create(customerId, payload);
+        setRecords((prev) => [created, ...(prev ?? [])]);
+        message.success('已新增');
+      }
+      setFormOpen(false);
+    } catch (err) {
+      message.error(parseApiError(err, '儲存失敗').message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await hairRecordsApi.remove(customerId, id);
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+      message.success('已刪除');
+    } catch (err) {
+      message.error(parseApiError(err, '刪除失敗').message);
+    }
+  };
+
+  const copyFormula = (formula) => {
+    navigator.clipboard?.writeText(formula);
+    message.success('配方已複製');
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text type="secondary" style={{ fontSize: 13 }}>共 {(records ?? []).length} 筆紀錄</Text>
+        <Button type="primary" icon={<PlusOutlined />} size="small" onClick={openAdd}>新增紀錄</Button>
+      </div>
+
+      {loadingRecords && <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}
+      {loadErr && <Alert type="error" showIcon message={loadErr} />}
+
+      {!loadingRecords && !loadErr && (records ?? []).length === 0 && (
+        <Empty description="尚無美髮紀錄" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      )}
+
+      {!loadingRecords && !loadErr && (records ?? []).map((r) => (
+        <Card
+          key={r.id}
+          size="small"
+          style={{
+            marginBottom: 10,
+            background: 'rgba(238,242,255,0.6)',
+            border: '1px solid rgba(99,102,241,0.12)',
+            borderRadius: 12,
+          }}
+          bodyStyle={{ padding: '10px 14px' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                <Text strong style={{ color: '#4338ca' }}>{dayjs(r.record_date).format('YYYY/MM/DD')}</Text>
+                {r.staff_name && <Tag color="blue" style={{ fontSize: 11 }}>{r.staff_name}</Tag>}
+                {r.hair_condition && <Tag color="cyan" style={{ fontSize: 11 }}>{r.hair_condition}</Tag>}
+              </div>
+              {r.service_names && (
+                <div style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
+                  <ScissorOutlined style={{ marginRight: 4, color: '#6366f1' }} />
+                  {r.service_names}
+                </div>
+              )}
+              {r.color_formula && (
+                <div style={{
+                  fontSize: 12, color: '#7c3aed', background: 'rgba(139,92,246,0.08)',
+                  borderRadius: 6, padding: '3px 8px', display: 'inline-flex',
+                  alignItems: 'center', gap: 6, marginBottom: 4,
+                }}>
+                  <span>🎨 {r.color_formula}</span>
+                  <Tooltip title="複製配方">
+                    <CopyOutlined
+                      style={{ cursor: 'pointer', fontSize: 11 }}
+                      onClick={() => copyFormula(r.color_formula)}
+                    />
+                  </Tooltip>
+                </div>
+              )}
+              {r.notes && (
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>備註：{r.notes}</div>
+              )}
+            </div>
+            <Space size={4} style={{ flexShrink: 0, marginLeft: 8 }}>
+              <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+              <Popconfirm title="確認刪除？" onConfirm={() => handleDelete(r.id)} okText="確認" cancelText="取消">
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </Space>
+          </div>
+        </Card>
+      ))}
+
+      <Modal
+        title={editing ? '編輯美髮紀錄' : '新增美髮紀錄'}
+        open={formOpen}
+        onCancel={() => setFormOpen(false)}
+        onOk={() => form.submit()}
+        okText={saving ? '儲存中...' : '儲存'}
+        okButtonProps={{ loading: saving }}
+        cancelText="取消"
+        width={520}
+      >
+        <Form form={form} layout="vertical" onFinish={handleSave}>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="record_date" label="到訪日期" rules={[{ required: true, message: '請選日期' }]}>
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="staff_id" label="服務技師">
+                <Select allowClear placeholder="選擇技師">
+                  {staffList.map((s) => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="service_names" label="服務項目">
+                <Input placeholder="例：剪髮、染髮、護髮" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="hair_condition" label="髮質狀況">
+                <Select allowClear placeholder="選擇髮質">
+                  {HAIR_CONDITIONS.map((c) => <Select.Option key={c} value={c}>{c}</Select.Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="color_formula" label="染髮配方">
+            <Input.TextArea rows={2} placeholder="例：7N 70% + Copper 30%，6% 氧化劑" />
+          </Form.Item>
+          <Form.Item name="notes" label="備註">
+            <Input.TextArea rows={2} placeholder="其他注意事項或顧客偏好" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
 }
 
 export default function CustomerManagement() {
@@ -57,7 +265,15 @@ export default function CustomerManagement() {
   const [importing, setImporting] = useState(false);
 
   const openAdd = () => { setEditing(null); form.resetFields(); setModalOpen(true); };
-  const openEdit = (r) => { setEditing(r); form.setFieldsValue(r); setModalOpen(true); };
+  const openEdit = (r) => {
+    setEditing(r);
+    form.setFieldsValue({
+      ...r,
+      birthday: r.birthday ? dayjs(r.birthday) : undefined,
+    });
+    setModalOpen(true);
+  };
+
   const openDetail = async (r) => {
     setSelected(r);
     setDetailOpen(true);
@@ -75,12 +291,16 @@ export default function CustomerManagement() {
   };
 
   const handleSave = async (values) => {
+    const payload = {
+      ...values,
+      birthday: values.birthday ? values.birthday.format('YYYY-MM-DD') : null,
+    };
     try {
       if (editing) {
-        const u = await customersApi.update(editing.id, values);
+        const u = await customersApi.update(editing.id, payload);
         setCustomers((p) => p.map((c) => c.id === editing.id ? u : c));
       } else {
-        const c = await customersApi.create(values);
+        const c = await customersApi.create(payload);
         setCustomers((p) => [...p, c]);
       }
     } catch (err) {
@@ -144,7 +364,6 @@ export default function CustomerManagement() {
     }
   };
 
-  // 回訪提醒列表
   const reminderList = (customers ?? [])
     .map((c) => ({ ...c, _revisit: revisitStatus(c) }))
     .filter((c) => c._revisit)
@@ -157,11 +376,13 @@ export default function CustomerManagement() {
       title: '顧客', key: 'name',
       render: (_, r) => {
         const rv = revisitStatus(r);
+        const hasBirthday = r.birthday && dayjs(r.birthday).month() === dayjs().month() && dayjs(r.birthday).date() === dayjs().date();
         return (
           <Space>
             <Button type="link" style={{ padding: 0 }} onClick={() => openDetail(r)}>
               <Space><UserOutlined /><Text strong>{r.name}</Text></Space>
             </Button>
+            {hasBirthday && <Tooltip title="今天生日 🎂"><span>🎂</span></Tooltip>}
             {rv?.overdue && <Tooltip title="回訪已逾期"><WarningOutlined style={{ color: '#ff4d4f' }} /></Tooltip>}
           </Space>
         );
@@ -257,15 +478,10 @@ export default function CustomerManagement() {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="allergy_info" label="過敏 / 禁忌資訊">
-            <Input.TextArea rows={2} placeholder="例：對薰衣草精油過敏、酒精敏感" />
-          </Form.Item>
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="preferred_staff_id" label="偏好技師">
-                <Select allowClear placeholder="不指定">
-                  {staffList.map((s) => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
-                </Select>
+              <Form.Item name="birthday" label="生日">
+                <DatePicker style={{ width: '100%' }} placeholder="選擇生日" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -274,12 +490,20 @@ export default function CustomerManagement() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item name="allergy_info" label="過敏 / 禁忌資訊">
+            <Input.TextArea rows={2} placeholder="例：對薰衣草精油過敏、酒精敏感" />
+          </Form.Item>
+          <Form.Item name="preferred_staff_id" label="偏好技師">
+            <Select allowClear placeholder="不指定">
+              {staffList.map((s) => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
+            </Select>
+          </Form.Item>
         </Form>
       </Modal>
 
       {/* 顧客詳情 Modal */}
       <Modal title={`${selected?.name} — 顧客詳情`} open={detailOpen}
-        onCancel={() => setDetailOpen(false)} width={640}
+        onCancel={() => setDetailOpen(false)} width={680}
         footer={[
           <Button key="topup" icon={<WalletOutlined />} type="primary" onClick={() => setTopUpOpen(true)}>儲值 / 加點</Button>,
           <Button key="close" onClick={() => setDetailOpen(false)}>關閉</Button>,
@@ -300,19 +524,28 @@ export default function CustomerManagement() {
                     <Descriptions.Item label="等級"><Tag color={LEVELS.find((l) => l.value === selected.level)?.color}>{selected.level}</Tag></Descriptions.Item>
                     <Descriptions.Item label="電話">{selected.phone}</Descriptions.Item>
                     <Descriptions.Item label="Email">{selected.email || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="生日">
+                      {selected.birthday
+                        ? <span>{dayjs(selected.birthday).format('MM 月 DD 日')} 🎂</span>
+                        : <Text type="secondary">—</Text>}
+                    </Descriptions.Item>
                     <Descriptions.Item label="偏好技師">
                       {staffList.find((s) => s.id === selected.preferred_staff_id)?.name ?? '不指定'}
                     </Descriptions.Item>
                     <Descriptions.Item label="建議回訪">{selected.revisit_days ?? 30} 天</Descriptions.Item>
+                    <Descriptions.Item label="累計消費">${Number(selected.total_spent).toLocaleString()}</Descriptions.Item>
                     <Descriptions.Item label="過敏/禁忌" span={2}>
                       {selected.allergy_info
                         ? <Text type="danger"><WarningOutlined /> {selected.allergy_info}</Text>
                         : <Text type="secondary">無</Text>}
                     </Descriptions.Item>
-                    <Descriptions.Item label="累計消費" span={2}>${Number(selected.total_spent).toLocaleString()}</Descriptions.Item>
                   </Descriptions>
                 </>
               ),
+            },
+            {
+              key: 'hair', label: <Space><ScissorOutlined />美髮紀錄</Space>,
+              children: <HairRecordTab customerId={selected.id} staffList={staffList} />,
             },
             {
               key: 'history', label: '消費紀錄',

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-/** 與 API 不同網域時可設 VITE_WS_ORIGIN（例：https://api.example.com，不含路徑） */
 function wsBaseUrl() {
   const explicit = import.meta.env.VITE_WS_ORIGIN;
   if (explicit) {
@@ -12,17 +11,15 @@ function wsBaseUrl() {
 
 const WS_BASE = wsBaseUrl();
 
-/**
- * Connects to a WebSocket endpoint and calls onMessage on each event.
- * Automatically reconnects on disconnect (max 5 retries).
- */
 export function useWebSocket(path, onMessage) {
   const wsRef = useRef(null);
   const retries = useRef(0);
+  const cancelledRef = useRef(false);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
 
   const connect = useCallback(() => {
+    if (cancelledRef.current) return;
     try {
       const ws = new WebSocket(`${WS_BASE}${path}`);
       wsRef.current = ws;
@@ -37,18 +34,22 @@ export function useWebSocket(path, onMessage) {
       ws.onopen = () => { retries.current = 0; };
 
       ws.onclose = () => {
-        if (retries.current < 5) {
+        if (!cancelledRef.current && retries.current < 5) {
           retries.current += 1;
           setTimeout(connect, 2000 * retries.current);
         }
       };
 
       ws.onerror = () => ws.close();
-    } catch { /* WS not available (API offline) */ }
+    } catch { /* WS not available */ }
   }, [path]);
 
   useEffect(() => {
+    cancelledRef.current = false;
     connect();
-    return () => wsRef.current?.close();
+    return () => {
+      cancelledRef.current = true;
+      wsRef.current?.close();
+    };
   }, [connect]);
 }

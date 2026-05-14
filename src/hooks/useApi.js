@@ -27,15 +27,17 @@ export function useApi(apiFn, arg2 = null, arg3 = []) {
   useEffect(() => { fallbackToMockRef.current = fallbackToMock; }, [fallbackToMock]);
   useEffect(() => { mockDataRef.current = mockData; }, [mockData]);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
       const result = await apiFnRef.current();
+      if (signal?.aborted) return result;
       setData(result);
       setUsingMock(false);
       return result;
     } catch (err) {
+      if (signal?.aborted) return;
       setError(err);
       if (fallbackToMockRef.current && mockDataRef.current !== null) {
         setData(mockDataRef.current);
@@ -45,13 +47,14 @@ export function useApi(apiFn, arg2 = null, arg3 = []) {
       }
       throw err;
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetch().catch(() => {});
+    const controller = new AbortController();
+    fetch(controller.signal).catch(() => {});
+    return () => controller.abort();
   }, [fetch, depsKey]);
 
   return { data, loading, usingMock, error, refetch: fetch, setData };

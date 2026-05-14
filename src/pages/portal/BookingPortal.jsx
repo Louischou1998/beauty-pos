@@ -90,7 +90,7 @@ export default function BookingPortal() {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedService, selectedStaff, selectedDate, selectedSlot]);
+  }, [selectedService, selectedStaff, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredServices = catFilter === '全部' ? services : services.filter((s) => s.category === catFilter);
 

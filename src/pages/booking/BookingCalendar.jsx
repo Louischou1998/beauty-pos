@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import {
   Button, Modal, Form, Select, TimePicker, DatePicker, Switch,
   Tag, Typography, Space, Card, Avatar, Alert, Tooltip, Badge, notification, message,
+  Row, Col, Divider,
 } from 'antd';
-import { PlusOutlined, WarningOutlined, CheckCircleOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { PlusOutlined, WarningOutlined, CheckCircleOutlined, LeftOutlined, RightOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useApi } from '../../hooks/useApi';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -65,7 +66,7 @@ const hasConflict = (bookings, staffId, date, startTime, endTime, excludeId = nu
 const isValidTimeWindow = (startMin, endMin) =>
   startMin >= BUSINESS_OPEN_MINUTES && endMin <= BUSINESS_CLOSE_MINUTES && startMin < endMin;
 
-function BookingCell({ booking, onClick }) {
+const BookingCell = memo(function BookingCell({ booking, onClick }) {
   const cfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.done;
   return (
     <Tooltip title={`${booking.customerName} / ${booking.serviceName} / ${booking.startTime}–${booking.endTime}`}>
@@ -95,7 +96,7 @@ function BookingCell({ booking, onClick }) {
       </div>
     </Tooltip>
   );
-}
+});
 
 export default function BookingCalendar() {
   const [showPastRecords, setShowPastRecords] = useState(false);
@@ -116,9 +117,12 @@ export default function BookingCalendar() {
   );
 
   const loadWeekBookings = useCallback(async () => {
-      const results = await Promise.all(weekDayStrings.map((date) => bookingsApi.list(date)));
-      return results.flat();
-  }, [weekDayStrings]);
+    if (!visibleWeekDays.length) return [];
+    return bookingsApi.listRange(
+      visibleWeekDays[0].format('YYYY-MM-DD'),
+      visibleWeekDays[visibleWeekDays.length - 1].format('YYYY-MM-DD'),
+    );
+  }, [visibleWeekDays]);
 
   const { data: apiBookings, refetch, error: bookingsError } = useApi(
     loadWeekBookings,
@@ -249,80 +253,76 @@ export default function BookingCalendar() {
   const canGoPrevWeek = showPastRecords || weekStart.isAfter(currentRangeStart, 'day');
 
   const checkConflict = (changedValues, allValues) => {
-    const { staffId, serviceId, startTime, bookingDate } = allValues;
-    if (!staffId || !serviceId || !startTime || !bookingDate) {
-      setConflictWarning(null);
-      return;
-    }
-    const service = serviceList.find((s) => s.id === serviceId);
-    if (!service) return;
-    const startStr = startTime.format('HH:mm');
-    const startMin = toMinutes(startStr);
-    const endMin = toMinutes(startStr) + service.duration;
-    const endStr = fromMinutes(endMin);
-    if (!isValidTimeWindow(startMin, endMin)) {
-      setConflictWarning('預約時間需在 09:00~22:00，且服務不可超過營業結束時間');
-      return;
-    }
+    const { items, startTime, bookingDate } = allValues;
+    if (!items?.length || !startTime || !bookingDate) { setConflictWarning(null); return; }
     const dateStr = bookingDate.format('YYYY-MM-DD');
-    if (!canBookBySchedule(staffId, dateStr, startMin, endMin)) {
-      setConflictWarning('此技師該日期班別不可預約此時段（含休假）');
-      return;
+    let curMin = toMinutes(startTime.format('HH:mm'));
+    for (const item of items) {
+      if (!item?.serviceId) continue;
+      const service = serviceList.find((s) => s.id === item.serviceId);
+      if (!service) continue;
+      const endMin = curMin + service.duration;
+      if (!isValidTimeWindow(curMin, endMin)) {
+        setConflictWarning('預約時間超出營業時間 (09:00–22:00)'); return;
+      }
+      if (item.staffId && !canBookBySchedule(item.staffId, dateStr, curMin, endMin)) {
+        setConflictWarning('此技師該日期班別不可預約此時段（含休假）'); return;
+      }
+      if (item.staffId && hasConflict(bookings, item.staffId, dateStr, fromMinutes(curMin), fromMinutes(endMin))) {
+        setConflictWarning(`${fromMinutes(curMin)}–${fromMinutes(endMin)} 與現有預約衝突`); return;
+      }
+      curMin = endMin;
     }
-    const conflict = hasConflict(bookings, staffId, dateStr, startStr, endStr);
-    setConflictWarning(conflict ? `${startStr}–${endStr} 與現有預約衝突` : null);
+    setConflictWarning(null);
   };
 
   const handleAdd = async (values) => {
-    const service = serviceList.find((s) => s.id === values.serviceId);
-    const staff = staffList.find((s) => s.id === values.staffId);
-    const customer = customerList.find((c) => c.id === values.customerId);
-    if (!service || !staff || !customer) {
-      message.error('顧客 / 服務 / 技師資料不完整，請重新整理');
+    const { customerId, bookingDate, startTime, items } = values;
+    const customer = customerList.find((c) => c.id === customerId);
+    if (!customer || !items?.length) {
+      message.error('請確認顧客與服務項目');
       return;
     }
-    const startStr = values.startTime.format('HH:mm');
-    const startMin = toMinutes(startStr);
-    const endMin = toMinutes(startStr) + service.duration;
-    const endStr = fromMinutes(endMin);
-    const bookingDate = values.bookingDate;
     const bookingDateStr = bookingDate.format('YYYY-MM-DD');
-    if (!isValidTimeWindow(startMin, endMin)) {
-      setConflictWarning('預約時間需在 09:00~22:00，且服務不可超過營業結束時間');
-      return;
-    }
-    if (!canBookBySchedule(staff.id, bookingDateStr, startMin, endMin)) {
-      setConflictWarning('此技師該日期班別不可預約此時段（含休假）');
-      return;
-    }
+    const bookingItems = [];
+    let curTime = startTime
+      .year(bookingDate.year()).month(bookingDate.month()).date(bookingDate.date())
+      .second(0).millisecond(0);
 
-    if (hasConflict(bookings, staff.id, bookingDateStr, startStr, endStr)) {
-      setConflictWarning(`${staff.name} 在 ${bookingDateStr} ${startStr}–${endStr} 已有預約，請換時段`);
-      return;
+    for (const item of items) {
+      const service = serviceList.find((s) => s.id === item.serviceId);
+      const staff = staffList.find((s) => s.id === item.staffId);
+      if (!service || !staff) { message.error('服務或技師資料不完整，請重新整理'); return; }
+      const curMin = curTime.hour() * 60 + curTime.minute();
+      const endMin = curMin + service.duration;
+      const curStr = fromMinutes(curMin);
+      const endStr = fromMinutes(endMin);
+      if (!isValidTimeWindow(curMin, endMin)) {
+        setConflictWarning(`「${service.name}」時間超出營業時間 (09:00–22:00)`); return;
+      }
+      if (!canBookBySchedule(staff.id, bookingDateStr, curMin, endMin)) {
+        setConflictWarning(`「${service.name}」：${staff.name} 該時段不可預約`); return;
+      }
+      if (hasConflict(bookings, staff.id, bookingDateStr, curStr, endStr)) {
+        setConflictWarning(`${staff.name} 在 ${curStr}–${endStr} 已有預約，請換時段或技師`); return;
+      }
+      bookingItems.push({
+        service_id: service.id,
+        staff_id: staff.id,
+        start_at: curTime.toISOString(),
+        price: Number(service.price),
+      });
+      // 下一個服務接在這個結束後
+      curTime = curTime.add(service.duration, 'minute');
     }
 
     try {
-      await bookingsApi.create({
-        customer_id: customer.id,
-        note: null,
-        items: [{
-          service_id: service.id,
-          staff_id: staff.id,
-          start_at: values.startTime
-            .year(bookingDate.year())
-            .month(bookingDate.month())
-            .date(bookingDate.date())
-            .second(0)
-            .millisecond(0)
-            .toISOString(),
-          price: Number(service.price),
-        }],
-      });
+      await bookingsApi.create({ customer_id: customer.id, note: null, items: bookingItems });
       await refetch();
       setAddOpen(false);
       setConflictWarning(null);
       form.resetFields();
-      message.success('預約已建立');
+      message.success(`預約已建立（${bookingItems.length} 項服務）`);
     } catch (err) {
       const { code, message: errMsg } = parseApiError(err, '建立預約失敗');
       message.error(code ? `${errMsg} (${code})` : errMsg);
@@ -398,8 +398,8 @@ export default function BookingCalendar() {
             onClick={() => {
               setConflictWarning(null);
               form.setFieldsValue({
-                staffId: effectiveSelectedStaffId ?? undefined,
                 bookingDate: weekDays[0],
+                items: [{ staffId: effectiveSelectedStaffId ?? undefined }],
               });
               setAddOpen(true);
             }}
@@ -474,6 +474,7 @@ export default function BookingCalendar() {
         onOk={() => form.submit()}
         okText="確認新增" cancelText="取消"
         okButtonProps={{ disabled: !!conflictWarning }}
+        width={580}
       >
         {conflictWarning && (
           <Alert
@@ -492,48 +493,106 @@ export default function BookingCalendar() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="serviceId" label="服務項目（美髮）" rules={[{ required: true }]}>
-            <Select placeholder="選擇服務" showSearch optionFilterProp="children">
-              {serviceList.map((s) => (
-                <Select.Option key={s.id} value={s.id}>{s.name} — {s.duration}分鐘 / ${s.price}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="staffId" label="指定技師（美髮）" rules={[{ required: true }]}>
-            <Select placeholder="選擇技師">
-              {staffList.map((s) => (
-                <Select.Option key={s.id} value={s.id}>
-                  <Space>
-                    <Avatar size="small" style={{ background: s.color }}>{s.name[0]}</Avatar>
-                    {s.name}
-                  </Space>
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="bookingDate" label="預約日期" rules={[{ required: true }]}>
-            <DatePicker
-              style={{ width: '100%' }}
-              onChange={() => checkConflict({}, form.getFieldsValue())}
-              disabledDate={(current) =>
-                !showPastRecords && current && current.startOf('day').isBefore(today)
-              }
-            />
-          </Form.Item>
-          <Form.Item name="startTime" label="開始時間" rules={[{ required: true }]}>
-            <TimePicker
-              format="HH:mm"
-              minuteStep={30}
-              style={{ width: '100%' }}
-              disabledTime={() => ({
-                disabledHours: () => [
-                  0, 1, 2, 3, 4, 5, 6, 7, 8,
-                  22, 23,
-                ],
-                disabledMinutes: () => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59],
-              })}
-            />
-          </Form.Item>
+
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="bookingDate" label="預約日期" rules={[{ required: true }]}>
+                <DatePicker
+                  style={{ width: '100%' }}
+                  disabledDate={(current) =>
+                    !showPastRecords && current && current.startOf('day').isBefore(today)
+                  }
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="startTime" label="開始時間" rules={[{ required: true }]}>
+                <TimePicker
+                  format="HH:mm"
+                  minuteStep={30}
+                  style={{ width: '100%' }}
+                  disabledTime={() => ({
+                    disabledHours: () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 22, 23],
+                    disabledMinutes: () => Array.from({ length: 60 }, (_, i) => i).filter((m) => m !== 0 && m !== 30),
+                  })}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider orientation="left" style={{ fontSize: 13, margin: '8px 0 12px' }}>服務項目</Divider>
+
+          <Form.List name="items" initialValue={[{}]}>
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map((field, index) => (
+                  <div key={field.key} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <Row gutter={8}>
+                        <Col span={13}>
+                          <Form.Item
+                            name={[field.name, 'serviceId']}
+                            label={index === 0 ? '服務項目' : undefined}
+                            rules={[{ required: true, message: '請選服務' }]}
+                            style={{ marginBottom: 8 }}
+                          >
+                            <Select placeholder="選擇服務" showSearch optionFilterProp="children">
+                              {serviceList.map((s) => (
+                                <Select.Option key={s.id} value={s.id}>
+                                  {s.name} <span style={{ color: '#999', fontSize: 11 }}>({s.duration}分 / ${s.price})</span>
+                                </Select.Option>
+                              ))}
+                            </Select>
+                          </Form.Item>
+                        </Col>
+                        <Col span={11}>
+                          <Form.Item
+                            name={[field.name, 'staffId']}
+                            label={index === 0 ? '指定技師' : undefined}
+                            rules={[{ required: true, message: '請選技師' }]}
+                            style={{ marginBottom: 8 }}
+                          >
+                            <Select placeholder="選擇技師">
+                              {staffList.map((s) => (
+                                <Select.Option key={s.id} value={s.id}>
+                                  <Space size={6}>
+                                    <Avatar size="small" style={{ background: s.color, flexShrink: 0 }}>{s.name[0]}</Avatar>
+                                    {s.name}
+                                  </Space>
+                                </Select.Option>
+                              ))}
+                            </Select>
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                    </div>
+                    {fields.length > 1 && (
+                      <Button
+                        type="text"
+                        danger
+                        icon={<MinusCircleOutlined />}
+                        size="small"
+                        style={{ marginTop: index === 0 ? 30 : 4, flexShrink: 0 }}
+                        onClick={() => remove(field.name)}
+                      />
+                    )}
+                  </div>
+                ))}
+                <Form.Item style={{ marginBottom: 0 }}>
+                  <Button
+                    type="dashed"
+                    onClick={() => add()}
+                    icon={<PlusOutlined />}
+                    block
+                    size="small"
+                  >
+                    新增服務項目（如：剪＋染＋護）
+                  </Button>
+                </Form.Item>
+
+              </>
+            )}
+          </Form.List>
         </Form>
       </Modal>
 

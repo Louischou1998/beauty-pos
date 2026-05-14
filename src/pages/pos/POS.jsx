@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card, Col, Row, Button, Tag, Typography, Divider,
   Select, Space, Empty, Modal, message, Spin, Result,
@@ -21,7 +21,6 @@ import { parseApiError } from '../../utils/apiError';
 
 const { Text } = Typography;
 
-const SERVICE_CATEGORIES = ['全部', '美髮', '染燙', '護理', '造型'];
 const PRODUCT_CATEGORIES = ['全部', '洗護', '染後護理', '造型', '頭皮護理'];
 const PAYMENT_METHODS = [
   { value: 'cash', label: '現金' },
@@ -125,9 +124,21 @@ export default function POS() {
   const customerList = customers ?? [];
   const productList = products ?? [];
   const staffList = staffs ?? [];
+
+  // 動態分類：優先用後端 category_id，沒有才 fallback 推斷
+  const categoryMap = useMemo(
+    () => new Map((serviceCategories ?? []).map((c) => [c.id, c.name])),
+    [serviceCategories],
+  );
+  const SERVICE_CATEGORIES = useMemo(
+    () => ['全部', ...(serviceCategories ?? []).map((c) => c.name)],
+    [serviceCategories],
+  );
   const displayServiceList = serviceList.map((s) => ({
     ...s,
-    category: inferServiceCategory(s.name),
+    category: s.category_id
+      ? (categoryMap.get(s.category_id) ?? inferServiceCategory(s.name))
+      : inferServiceCategory(s.name),
   }));
 
   const openAddService = () => {
@@ -420,7 +431,16 @@ export default function POS() {
           {cart.length === 0
             ? <Empty description="點擊左方項目加入" image={Empty.PRESENTED_IMAGE_SIMPLE} />
             : cart.map((item) => (
-              <div key={item._key} style={{ background: '#fafafa', borderRadius: 6, padding: 8, marginBottom: 8 }}>
+              <div key={item._key} style={{
+                background: 'rgba(238,242,255,0.65)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: '1px solid rgba(99,102,241,0.12)',
+                borderRadius: 10,
+                padding: 8,
+                marginBottom: 8,
+                transition: 'box-shadow .2s',
+              }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Space>
                     <Tag color={item._type === 'service' ? 'blue' : 'green'} style={{ fontSize: 10 }}>

@@ -1,4 +1,9 @@
 const ERROR_CODE_MESSAGES = {
+  INSUFFICIENT_BALANCE: '儲值金餘額不足，請先儲值或改用其他付款方式',
+  COUPON_INVALID: '優惠券不存在或已停用',
+  COUPON_EXPIRED: '優惠券已過期',
+  COUPON_EXHAUSTED: '優惠券使用次數已達上限',
+  COUPON_MIN_AMOUNT: '消費金額未達優惠券最低使用門檻',
   VALIDATION_ERROR: '輸入資料格式有誤，請檢查後重試',
   SERVICE_NOT_FOUND: '找不到服務項目，請重新整理後再試',
   PRODUCT_NOT_FOUND: '找不到商品資料，請重新整理後再試',

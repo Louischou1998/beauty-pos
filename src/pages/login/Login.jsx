@@ -87,14 +87,16 @@ export default function Login() {
             </Button>
           </Form>
 
-          <div style={{
-            marginTop: 24, padding: '12px 16px', borderRadius: 12,
-            background: 'rgba(238,242,255,0.8)', border: '1px solid rgba(99,102,241,0.15)',
-          }}>
-            <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>測試帳號</Text>
-            <Text style={{ fontSize: 12, color: '#4f46e5' }}>管理員：admin@beauty-pos.com / admin1234</Text><br />
-            <Text style={{ fontSize: 12, color: '#7c3aed' }}>技師：staff1@beauty-pos.com / staff1234</Text>
-          </div>
+          {import.meta.env.DEV && (
+            <div style={{
+              marginTop: 24, padding: '12px 16px', borderRadius: 12,
+              background: 'rgba(238,242,255,0.8)', border: '1px solid rgba(99,102,241,0.15)',
+            }}>
+              <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>測試帳號（僅開發環境顯示）</Text>
+              <Text style={{ fontSize: 12, color: '#4f46e5' }}>管理員：admin@beauty-pos.com / admin1234</Text><br />
+              <Text style={{ fontSize: 12, color: '#7c3aed' }}>技師：staff1@beauty-pos.com / staff1234</Text>
+            </div>
+          )}
         </div>
       </div>
     </div>

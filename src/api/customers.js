@@ -7,4 +7,5 @@ export const customersApi = {
   topup: (id, data) => client.post(`/customers/${id}/topup`, data),
   history: (id) => client.get(`/customers/${id}/history`),
   remove: (id) => client.delete(`/customers/${id}`),
+  birthdays: (days = 30) => client.get(`/customers/birthdays?days=${days}`),
 };

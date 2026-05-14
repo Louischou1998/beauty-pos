@@ -40,7 +40,7 @@ export default function Inventory() {
   const [useForm] = Form.useForm();
   const [importing, setImporting] = useState(false);
 
-  const lowStockItems = (items ?? []).filter((i) => i.is_low);
+  const lowStockItems = useMemo(() => (items ?? []).filter((i) => i.is_low), [items]);
   const filteredItems = useMemo(() => {
     const list = items ?? [];
     return list.filter((item) => {
