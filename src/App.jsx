@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ConfigProvider } from 'antd';
 import zhTW from 'antd/locale/zh_TW';
 import { AuthProvider } from './context/AuthContext';
@@ -58,6 +59,7 @@ export default function App() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <ConfigProvider locale={zhTW} theme={theme}>
       <AuthProvider>
         <BrowserRouter>
@@ -87,5 +89,6 @@ export default function App() {
         </BrowserRouter>
       </AuthProvider>
     </ConfigProvider>
+    </ErrorBoundary>
   );
 }

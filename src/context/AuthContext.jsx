@@ -38,15 +38,18 @@ export function AuthProvider({ children }) {
       const res = await authApi.login(email, password);
       localStorage.setItem(TOKEN_KEY, res.access_token);
       client.defaults.headers.common['Authorization'] = `Bearer ${res.access_token}`;
-      // 先載完所有資料再 setUser，避免導頁和 preload 競爭
-      await Promise.all([
-        staffApi.list(),
-        servicesApi.list(),
-        servicesApi.listCategories(),
-        customersApi.list(),
-        productsApi.list(),
-        inventoryApi.list(),
-        couponsApi.list(),
+      // 預載所有資料，最多等 8 秒，超時就直接進去
+      await Promise.race([
+        Promise.all([
+          staffApi.list(),
+          servicesApi.list(),
+          servicesApi.listCategories(),
+          customersApi.list(),
+          productsApi.list(),
+          inventoryApi.list(),
+          couponsApi.list(),
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 8000)),
       ]).catch(() => {});
       setUser(res.user);
       return { ok: true };
