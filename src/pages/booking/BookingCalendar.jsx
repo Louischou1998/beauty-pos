@@ -66,8 +66,9 @@ const hasConflict = (bookings, staffId, date, startTime, endTime, excludeId = nu
 const isValidTimeWindow = (startMin, endMin) =>
   startMin >= BUSINESS_OPEN_MINUTES && endMin <= BUSINESS_CLOSE_MINUTES && startMin < endMin;
 
-const BookingCell = memo(function BookingCell({ booking, onClick }) {
+const BookingCell = memo(function BookingCell({ booking, onClick, onDone }) {
   const cfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.done;
+  const isDone = booking.status === 'done' || booking.status === 'cancelled';
   return (
     <Tooltip title={`${booking.customerName} / ${booking.serviceName} / ${booking.startTime}`}>
       <div
@@ -77,22 +78,35 @@ const BookingCell = memo(function BookingCell({ booking, onClick }) {
           border: `1px solid ${cfg.border}`,
           borderLeft: `3px solid ${cfg.border}`,
           borderRadius: 4,
-          padding: '2px 6px',
+          padding: '2px 6px 2px 6px',
           fontSize: 11,
           cursor: 'pointer',
           marginBottom: 2,
           lineHeight: 1.4,
+          position: 'relative',
+          opacity: isDone ? 0.55 : 1,
         }}
       >
-        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {!isDone && (
+          <div
+            onClick={(e) => { e.stopPropagation(); onDone(booking); }}
+            style={{
+              position: 'absolute', top: 2, right: 2,
+              width: 16, height: 16, borderRadius: 3,
+              border: '1.5px solid #52c41a',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#fff', cursor: 'pointer', zIndex: 1,
+              fontSize: 10, color: '#52c41a', fontWeight: 700,
+            }}
+            title="標記完成"
+          >✓</div>
+        )}
+        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 18 }}>
           {booking.customerName}
         </div>
         <div style={{ color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {booking.serviceName}
         </div>
-        <Tag color={cfg.color} style={{ fontSize: 10, padding: '0 3px', lineHeight: '16px' }}>
-          {cfg.label}
-        </Tag>
       </div>
     </Tooltip>
   );
@@ -433,7 +447,17 @@ export default function BookingCalendar() {
                         <Text type="danger" style={{ fontSize: 11 }}>休假</Text>
                       ) : null}
                       {cells.map((b) => (
-                        <BookingCell key={b.id} booking={b} onClick={(b) => { setDetailBooking(b); setDetailOpen(true); }} />
+                        <BookingCell
+                          key={b.id}
+                          booking={b}
+                          onClick={(b) => { setDetailBooking(b); setDetailOpen(true); }}
+                          onDone={async (b) => {
+                            try {
+                              await bookingsApi.updateStatus(b.bookingId, 'done');
+                              await refetch();
+                            } catch { message.error('更新失敗'); }
+                          }}
+                        />
                       ))}
                     </td>
                   );
