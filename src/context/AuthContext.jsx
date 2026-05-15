@@ -5,6 +5,8 @@ import client from '../api/client';
 import { parseApiError } from '../utils/apiError';
 import { staffApi } from '../api/staff';
 import { servicesApi } from '../api/services';
+import { customersApi } from '../api/customers';
+import { productsApi } from '../api/products';
 
 const AuthContext = createContext(null);
 
@@ -35,8 +37,14 @@ export function AuthProvider({ children }) {
       localStorage.setItem(TOKEN_KEY, res.access_token);
       client.defaults.headers.common['Authorization'] = `Bearer ${res.access_token}`;
       setUser(res.user);
-      // 預載常用資料進快取
-      Promise.all([staffApi.list(), servicesApi.list(), servicesApi.listCategories()]).catch(() => {});
+      // 預載常用資料進快取（同時跑，等最慢那個）
+      Promise.all([
+        staffApi.list(),
+        servicesApi.list(),
+        servicesApi.listCategories(),
+        customersApi.list(),
+        productsApi.list(),
+      ]).catch(() => {});
       return { ok: true };
     } catch (err) {
       return { ok: false, message: parseApiError(err, '登入失敗').message };
