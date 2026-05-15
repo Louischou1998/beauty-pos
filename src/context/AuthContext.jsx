@@ -39,8 +39,8 @@ export function AuthProvider({ children }) {
       localStorage.setItem(TOKEN_KEY, res.access_token);
       client.defaults.headers.common['Authorization'] = `Bearer ${res.access_token}`;
       setUser(res.user);
-      // 登入後預載所有靜態資料，之後切頁面直接用快取
-      Promise.all([
+      // 等所有資料載完再放行，之後每頁直接用快取
+      await Promise.all([
         staffApi.list(),
         servicesApi.list(),
         servicesApi.listCategories(),
