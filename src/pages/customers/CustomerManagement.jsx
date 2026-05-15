@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import ExcelImportButtons from '../../components/ExcelImportButtons';
 import {
   parseExcelFile,
@@ -364,12 +364,12 @@ export default function CustomerManagement() {
     }
   };
 
-  const reminderList = (customers ?? [])
+  const reminderList = useMemo(() => (customers ?? [])
     .map((c) => ({ ...c, _revisit: revisitStatus(c) }))
     .filter((c) => c._revisit)
-    .sort((a, b) => a._revisit.daysLeft - b._revisit.daysLeft);
+    .sort((a, b) => a._revisit.daysLeft - b._revisit.daysLeft), [customers]);
 
-  const overdueCount = reminderList.filter((c) => c._revisit.overdue).length;
+  const overdueCount = useMemo(() => reminderList.filter((c) => c._revisit.overdue).length, [reminderList]);
 
   const columns = [
     {

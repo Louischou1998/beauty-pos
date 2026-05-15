@@ -93,12 +93,12 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [customers]);
 
-  const stats = [
+  const stats = useMemo(() => [
     { title: '近7日營收', value: `$${Number(summary?.total_revenue ?? 0).toLocaleString()}`, sub: '資料來源：DB', icon: <WalletOutlined />, grad: 'linear-gradient(135deg,#6366f1,#8b5cf6)', glow: 'rgba(99,102,241,.35)' },
     { title: '今日預約', value: bookings.length, sub: '筆', icon: <CalendarOutlined />, grad: 'linear-gradient(135deg,#06b6d4,#6366f1)', glow: 'rgba(6,182,212,.3)' },
     { title: '待確認', value: pendingCount, sub: '筆需處理', icon: <ClockCircleOutlined />, grad: 'linear-gradient(135deg,#f59e0b,#f43f5e)', glow: 'rgba(245,158,11,.3)' },
     { title: '近7日到客', value: Number(summary?.total_bookings ?? 0), sub: '人次', icon: <TeamOutlined />, grad: 'linear-gradient(135deg,#10b981,#06b6d4)', glow: 'rgba(16,185,129,.3)' },
-  ];
+  ], [summary, bookings.length, pendingCount]);
 
   return (
     <div className="page-wrap">

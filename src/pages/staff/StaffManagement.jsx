@@ -166,7 +166,7 @@ export default function StaffManagement() {
     }
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       title: '技師',
       key: 'name',
@@ -205,7 +205,7 @@ export default function StaffManagement() {
         </Space>
       ),
     },
-  ];
+  ], [openSchedule, openEdit, handleDelete]);
 
   return (
     <div className="page-wrap">

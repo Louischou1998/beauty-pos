@@ -134,12 +134,12 @@ export default function POS() {
     () => ['全部', ...(serviceCategories ?? []).map((c) => c.name)],
     [serviceCategories],
   );
-  const displayServiceList = serviceList.map((s) => ({
+  const displayServiceList = useMemo(() => serviceList.map((s) => ({
     ...s,
     category: s.category_id
       ? (categoryMap.get(s.category_id) ?? inferServiceCategory(s.name))
       : inferServiceCategory(s.name),
-  }));
+  })), [serviceList, categoryMap]);
 
   const openAddService = () => {
     setServiceEditing(null);
@@ -235,20 +235,20 @@ export default function POS() {
     }
   };
 
-  const addToCart = (item, type) => {
+  const addToCart = useCallback((item, type) => {
     const key = `${type}_${item.id}`;
     setCart((prev) => {
       const existing = prev.find((i) => i._key === key);
       if (existing) return prev.map((i) => i._key === key ? { ...i, qty: i.qty + 1 } : i);
       return [...prev, { ...item, _key: key, _type: type, qty: 1, staffId: null, isDesignated: false }];
     });
-  };
+  }, []);
 
-  const removeFromCart = (key) => setCart((prev) => prev.filter((i) => i._key !== key));
-  const updateStaff = (key, staffId) => setCart((prev) => prev.map((i) => i._key === key ? { ...i, staffId } : i));
-  const toggleDesignated = (key) => setCart((prev) => prev.map((i) => i._key === key ? { ...i, isDesignated: !i.isDesignated } : i));
-  const applyStaffToAllServices = (staffId) =>
-    setCart((prev) => prev.map((i) => (i._type === 'service' ? { ...i, staffId } : i)));
+  const removeFromCart = useCallback((key) => setCart((prev) => prev.filter((i) => i._key !== key)), []);
+  const updateStaff = useCallback((key, staffId) => setCart((prev) => prev.map((i) => i._key === key ? { ...i, staffId } : i)), []);
+  const toggleDesignated = useCallback((key) => setCart((prev) => prev.map((i) => i._key === key ? { ...i, isDesignated: !i.isDesignated } : i)), []);
+  const applyStaffToAllServices = useCallback((staffId) =>
+    setCart((prev) => prev.map((i) => (i._type === 'service' ? { ...i, staffId } : i))), []);
 
   const subtotal = cart.reduce((s, i) => s + Number(i.price) * i.qty, 0);
   const couponDiscount = coupon ? (coupon.type === 'percent' ? Math.round(subtotal * Number(coupon.value)) : Number(coupon.value)) : 0;

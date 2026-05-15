@@ -76,14 +76,13 @@ export default function Reports() {
   });
 
   const loading = l1 || l2 || l3 || l4 || l5;
-  const catWithColors = (categories ?? []).map((c, i) => ({ ...c, color: COLORS[i % COLORS.length] }));
-  const staffWithRef = (staffPerf ?? []).map((s) => ({ ...s, _all: staffPerf ?? [] }));
-  const staffColorMap = new Map((staffPerf ?? []).map((s) => [s.name, s.color || COLORS[0]]));
-
-  const dailyFormatted = (daily ?? []).map((d) => ({
+  const catWithColors = useMemo(() => (categories ?? []).map((c, i) => ({ ...c, color: COLORS[i % COLORS.length] })), [categories]);
+  const staffWithRef = useMemo(() => (staffPerf ?? []).map((s) => ({ ...s, _all: staffPerf ?? [] })), [staffPerf]);
+  const staffColorMap = useMemo(() => new Map((staffPerf ?? []).map((s) => [s.name, s.color || COLORS[0]])), [staffPerf]);
+  const dailyFormatted = useMemo(() => (daily ?? []).map((d) => ({
     ...d,
     date: typeof d.date === 'string' ? d.date.slice(5).replace('-', '/') : d.date,
-  }));
+  })), [daily]);
   const staffStackData = useMemo(() => {
     const map = new Map();
     (dailyStaff ?? []).forEach((row) => {
