@@ -165,28 +165,41 @@ export default function BookingCalendar() {
 
   const bookings = useMemo(() => {
     if (!apiBookings) return [];
-    return apiBookings.flatMap((booking) => {
+    const result = [];
+    for (const booking of apiBookings) {
       const customer = customerMap.get(booking.customer_id);
-      return (booking.items ?? []).map((item) => {
-        const staff = staffMap.get(item.staff_id);
-        const service = serviceMap.get(item.service_id);
-        return {
-          id: item.id,
+      const items = booking.items ?? [];
+      if (!items.length) continue;
+
+      // 依 staff_id 分組，同一技師的服務合併成一格
+      const byStaff = new Map();
+      for (const item of items) {
+        if (!byStaff.has(item.staff_id)) byStaff.set(item.staff_id, []);
+        byStaff.get(item.staff_id).push(item);
+      }
+
+      for (const [staffId, staffItems] of byStaff) {
+        const firstItem = staffItems[0];
+        const serviceNames = staffItems
+          .map((si) => serviceMap.get(si.service_id)?.name ?? `服務#${si.service_id}`)
+          .join('、');
+        result.push({
+          id: `${booking.id}_${staffId}`,
           bookingId: booking.id,
           customerId: booking.customer_id,
           customerName: customer?.name ?? `顧客#${booking.customer_id}`,
-          staffId: item.staff_id,
-          staffName: staff?.name ?? `技師#${item.staff_id}`,
-          serviceId: item.service_id,
-          serviceName: service?.name ?? `服務#${item.service_id}`,
-          date: dayjs(item.start_at).format('YYYY-MM-DD'),
-          startTime: dayjs(item.start_at).format('HH:mm'),
-          endTime: dayjs(item.end_at).format('HH:mm'),
+          staffId,
+          staffName: staffMap.get(staffId)?.name ?? `技師#${staffId}`,
+          serviceName: serviceNames,
+          date: dayjs(firstItem.start_at).format('YYYY-MM-DD'),
+          startTime: dayjs(firstItem.start_at).format('HH:mm'),
+          endTime: dayjs(firstItem.end_at).format('HH:mm'),
           status: booking.status,
-          price: Number(item.price),
-        };
-      });
-    });
+          price: staffItems.reduce((s, si) => s + Number(si.price), 0),
+        });
+      }
+    }
+    return result;
   }, [apiBookings, customerMap, staffMap, serviceMap]);
 
   const canBookBySchedule = useCallback((staffId, bookingDate, startMin, endMin) => {
