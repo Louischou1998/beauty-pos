@@ -65,9 +65,6 @@ function ItemGrid({
               )}
               <Tag color="blue" style={{ marginBottom: 4, fontSize: 11 }}>{s[labelKey]}</Tag>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{s.name}</div>
-              {s.duration != null && s.duration > 0 && (
-                <Text type="secondary" style={{ fontSize: 11 }}>{s.duration} 分鐘</Text>
-              )}
               {s.stock !== undefined && (
                 <div><Text type="secondary" style={{ fontSize: 11 }}>庫存 {s.stock}</Text></div>
               )}
