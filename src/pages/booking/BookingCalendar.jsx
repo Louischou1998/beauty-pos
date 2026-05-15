@@ -252,21 +252,7 @@ export default function BookingCalendar() {
 
   const canGoPrevWeek = showPastRecords || weekStart.isAfter(currentRangeStart, 'day');
 
-  const checkConflict = (changedValues, allValues) => {
-    const { items, startTime, bookingDate } = allValues;
-    if (!items?.length || !startTime || !bookingDate) { setConflictWarning(null); return; }
-    const dateStr = bookingDate.format('YYYY-MM-DD');
-    const startStr = startTime.format('HH:mm');
-    const startMin = toMinutes(startStr);
-    for (const item of items) {
-      if (!item?.serviceId || !item?.staffId) continue;
-      const service = serviceList.find((s) => s.id === item.serviceId);
-      if (!service) continue;
-      const endMin = startMin + service.duration;
-      if (hasConflict(bookings, item.staffId, dateStr, startStr, fromMinutes(endMin))) {
-        setConflictWarning(`${startStr} 與現有預約衝突`); return;
-      }
-    }
+  const checkConflict = () => {
     setConflictWarning(null);
   };
 
@@ -287,11 +273,6 @@ export default function BookingCalendar() {
       const service = serviceList.find((s) => s.id === item.serviceId);
       const staff = staffList.find((s) => s.id === item.staffId);
       if (!service || !staff) { message.error('服務或技師資料不完整，請重新整理'); return; }
-      const startStr = startTime.format('HH:mm');
-      const endStr = fromMinutes(toMinutes(startStr) + service.duration);
-      if (hasConflict(bookings, staff.id, bookingDateStr, startStr, endStr)) {
-        setConflictWarning(`${staff.name} 在此時段已有預約，請換時段或技師`); return;
-      }
       bookingItems.push({
         service_id: service.id,
         staff_id: staff.id,
