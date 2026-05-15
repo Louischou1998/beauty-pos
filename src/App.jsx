@@ -59,8 +59,8 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
     <ConfigProvider locale={zhTW} theme={theme}>
+    <ErrorBoundary>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -88,7 +88,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </ConfigProvider>
     </ErrorBoundary>
+    </ConfigProvider>
   );
 }
