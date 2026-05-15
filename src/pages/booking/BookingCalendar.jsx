@@ -69,7 +69,7 @@ const isValidTimeWindow = (startMin, endMin) =>
 const BookingCell = memo(function BookingCell({ booking, onClick }) {
   const cfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.done;
   return (
-    <Tooltip title={`${booking.customerName} / ${booking.serviceName} / ${booking.startTime}–${booking.endTime}`}>
+    <Tooltip title={`${booking.customerName} / ${booking.serviceName} / ${booking.startTime}`}>
       <div
         onClick={() => onClick(booking)}
         style={{
@@ -603,7 +603,7 @@ export default function BookingCalendar() {
             <div><Text type="secondary">顧客：</Text><Text strong>{detailBooking.customerName}</Text></div>
             <div><Text type="secondary">服務：</Text><Text>{detailBooking.serviceName}</Text></div>
             <div><Text type="secondary">技師：</Text><Text>{detailBooking.staffName}</Text></div>
-            <div><Text type="secondary">時段：</Text><Text>{detailBooking.startTime} – {detailBooking.endTime}</Text></div>
+            <div><Text type="secondary">時間：</Text><Text>{detailBooking.startTime}</Text></div>
             <div><Text type="secondary">金額：</Text><Text style={{ color: '#f50' }}>${detailBooking.price.toLocaleString()}</Text></div>
             <div>
               <Text type="secondary">狀態：</Text>
