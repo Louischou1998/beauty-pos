@@ -3,6 +3,8 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../api/auth';
 import client from '../api/client';
 import { parseApiError } from '../utils/apiError';
+import { staffApi } from '../api/staff';
+import { servicesApi } from '../api/services';
 
 const AuthContext = createContext(null);
 
@@ -33,6 +35,8 @@ export function AuthProvider({ children }) {
       localStorage.setItem(TOKEN_KEY, res.access_token);
       client.defaults.headers.common['Authorization'] = `Bearer ${res.access_token}`;
       setUser(res.user);
+      // 預載常用資料進快取
+      Promise.all([staffApi.list(), servicesApi.list(), servicesApi.listCategories()]).catch(() => {});
       return { ok: true };
     } catch (err) {
       return { ok: false, message: parseApiError(err, '登入失敗').message };

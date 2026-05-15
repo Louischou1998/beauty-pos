@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhTW from 'antd/locale/zh_TW';
@@ -42,9 +43,20 @@ const theme = {
   },
 };
 
+const API_ROOT = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1')
+  .replace(/\/api\/v1\/?$/, '');
+
 const AdminRoute = ({ children }) => <ProtectedRoute adminOnly>{children}</ProtectedRoute>;
 
 export default function App() {
+  // Keep Render free tier awake — ping every 14 minutes
+  useEffect(() => {
+    const ping = () => fetch(`${API_ROOT}/health`).catch(() => {});
+    ping();
+    const id = setInterval(ping, 14 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <ConfigProvider locale={zhTW} theme={theme}>
       <AuthProvider>
