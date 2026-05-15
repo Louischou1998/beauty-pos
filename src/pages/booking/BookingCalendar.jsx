@@ -580,19 +580,15 @@ export default function BookingCalendar() {
         open={detailOpen}
         onCancel={() => setDetailOpen(false)}
         footer={[
-          <Button key="cancel" danger onClick={() => { handleStatusChange('cancelled'); setDetailOpen(false); }}>
-            取消預約
-          </Button>,
-          detailBooking?.status === 'confirmed' && (
-            <Button key="start" type="primary" icon={<CheckCircleOutlined />}
-              onClick={() => handleStatusChange('in_progress')}>
-              開始服務
-            </Button>
-          ),
-          detailBooking?.status === 'in_progress' && (
+          detailBooking?.status !== 'done' && detailBooking?.status !== 'cancelled' && (
             <Button key="done" type="primary" icon={<CheckCircleOutlined />}
               onClick={() => { handleStatusChange('done'); setDetailOpen(false); }}>
-              完成服務
+              完成
+            </Button>
+          ),
+          detailBooking?.status !== 'cancelled' && detailBooking?.status !== 'done' && (
+            <Button key="cancel" danger onClick={() => { handleStatusChange('cancelled'); setDetailOpen(false); }}>
+              取消預約
             </Button>
           ),
           <Button key="close" onClick={() => setDetailOpen(false)}>關閉</Button>,
