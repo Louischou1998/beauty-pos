@@ -517,7 +517,7 @@ export default function BookingCalendar() {
                             <Select placeholder="選擇服務" showSearch optionFilterProp="children">
                               {serviceList.map((s) => (
                                 <Select.Option key={s.id} value={s.id}>
-                                  {s.name} <span style={{ color: '#999', fontSize: 11 }}>({s.duration}分 / ${s.price})</span>
+                                  {s.name} <span style={{ color: '#999', fontSize: 11 }}>${s.price}</span>
                                 </Select.Option>
                               ))}
                             </Select>
