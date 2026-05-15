@@ -269,13 +269,30 @@ export default function BookingCalendar() {
     }
   }, [refetch]));
 
-  const getBookingsForCell = (dateStr, slot) =>
-    bookings.filter(
-      (b) =>
-        b.staffId === effectiveSelectedStaffId &&
-        b.date === dateStr &&
-        b.startTime === slot
-    );
+  // 預先建 Map，避免每個格子都跑 O(n) filter
+  const bookingCellMap = useMemo(() => {
+    const map = new Map();
+    for (const b of bookings) {
+      const key = `${b.staffId}_${b.date}_${b.startTime}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(b);
+    }
+    return map;
+  }, [bookings]);
+
+  const getBookingsForCell = useCallback(
+    (dateStr, slot) => bookingCellMap.get(`${effectiveSelectedStaffId}_${dateStr}_${slot}`) ?? [],
+    [bookingCellMap, effectiveSelectedStaffId],
+  );
+
+  const handleCellClick = useCallback((b) => { setDetailBooking(b); setDetailOpen(true); }, []);
+
+  const handleDone = useCallback(async (b) => {
+    try {
+      await bookingsApi.updateStatus(b.bookingId, 'done');
+      await refetch();
+    } catch { message.error('更新失敗'); }
+  }, [refetch]);
 
   const canGoPrevWeek = showPastRecords || weekStart.isAfter(currentRangeStart, 'day');
 
@@ -450,13 +467,8 @@ export default function BookingCalendar() {
                         <BookingCell
                           key={b.id}
                           booking={b}
-                          onClick={(b) => { setDetailBooking(b); setDetailOpen(true); }}
-                          onDone={async (b) => {
-                            try {
-                              await bookingsApi.updateStatus(b.bookingId, 'done');
-                              await refetch();
-                            } catch { message.error('更新失敗'); }
-                          }}
+                          onClick={handleCellClick}
+                          onDone={handleDone}
                         />
                       ))}
                     </td>
