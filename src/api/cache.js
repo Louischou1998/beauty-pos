@@ -15,3 +15,9 @@ export function cached(key, fn) {
 export function bust(...keys) {
   keys.forEach((k) => store.delete(k));
 }
+
+// 清掉後立刻重新抓，讓快取保持最新
+export function refresh(key, fn) {
+  store.delete(key);
+  fn().then((data) => store.set(key, { data, ts: Date.now() })).catch(() => {});
+}
