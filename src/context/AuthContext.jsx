@@ -38,8 +38,7 @@ export function AuthProvider({ children }) {
       const res = await authApi.login(email, password);
       localStorage.setItem(TOKEN_KEY, res.access_token);
       client.defaults.headers.common['Authorization'] = `Bearer ${res.access_token}`;
-      setUser(res.user);
-      // 等所有資料載完再放行，之後每頁直接用快取
+      // 先載完所有資料再 setUser，避免導頁和 preload 競爭
       await Promise.all([
         staffApi.list(),
         servicesApi.list(),
@@ -49,6 +48,7 @@ export function AuthProvider({ children }) {
         inventoryApi.list(),
         couponsApi.list(),
       ]).catch(() => {});
+      setUser(res.user);
       return { ok: true };
     } catch (err) {
       return { ok: false, message: parseApiError(err, '登入失敗').message };
