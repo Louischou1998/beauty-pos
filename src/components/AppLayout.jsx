@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Layout, Menu, Typography, Avatar, Dropdown, Drawer, Button, Grid } from 'antd';
 import {
   DashboardOutlined, CalendarOutlined, ShoppingCartOutlined,
@@ -70,6 +70,12 @@ export default function AppLayout({ children }) {
 
   const menuItems = useMemo(() => buildMenuItems(user, collapsed), [user, collapsed]);
   const drawerMenuItems = useMemo(() => buildMenuItems(user, false), [user]);
+
+  // 每次換頁時清除 Ant Design 可能殘留的 modal 遮罩和 body overflow
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.querySelectorAll('.ant-modal-mask').forEach((el) => { el.style.display = 'none'; });
+  }, [location.pathname]);
 
   const handleMenuClick = ({ key }) => {
     if (key.startsWith('group-') || key.startsWith('divider-')) return;

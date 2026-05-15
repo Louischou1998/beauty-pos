@@ -482,6 +482,7 @@ export default function BookingCalendar() {
 
       {/* 新增預約 Modal */}
       <Modal
+        destroyOnClose
         title="新增預約"
         open={addOpen}
         onCancel={() => { setAddOpen(false); setConflictWarning(null); form.resetFields(); }}
@@ -612,6 +613,7 @@ export default function BookingCalendar() {
 
       {/* 預約詳情 Modal */}
       <Modal
+        destroyOnClose
         title="預約詳情"
         open={detailOpen}
         onCancel={() => setDetailOpen(false)}
