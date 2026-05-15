@@ -507,7 +507,7 @@ export default function POS() {
       </div>
 
       {/* 結帳 Modal（分拆付款）*/}
-      <Modal title="結帳付款" open={checkoutOpen}
+      <Modal destroyOnClose title="結帳付款" open={checkoutOpen}
         onOk={confirmCheckout} onCancel={() => setCheckoutOpen(false)}
         okText={loading ? <Spin size="small" /> : '確認收款'}
         okButtonProps={{ disabled: loading || Math.abs(remaining) > 0.5 }}
@@ -639,7 +639,7 @@ export default function POS() {
       </Modal>
 
       {/* 收據 Modal */}
-      <Modal title="結帳完成" open={receiptOpen} onCancel={() => setReceiptOpen(false)}
+      <Modal destroyOnClose title="結帳完成" open={receiptOpen} onCancel={() => setReceiptOpen(false)}
         footer={[<Button key="close" type="primary" onClick={() => setReceiptOpen(false)}>完成</Button>]}>
         <Result
           status="success"

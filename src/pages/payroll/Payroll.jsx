@@ -146,7 +146,7 @@ export default function Payroll() {
         <Table dataSource={payroll ?? []} columns={columns} rowKey="staff_id" loading={loading} pagination={false} />
       </Card>
 
-      <Modal title={`${detailStaff?.staff_name} — ${monthStr} 抽成明細`}
+      <Modal destroyOnClose title={`${detailStaff?.staff_name} — ${monthStr} 抽成明細`}
         open={detailOpen} onCancel={() => setDetailOpen(false)} footer={null} width={700}>
         <Table dataSource={details ?? []} columns={detailColumns} rowKey="id" size="small"
           summary={() => {

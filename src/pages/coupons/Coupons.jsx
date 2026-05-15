@@ -117,7 +117,7 @@ export default function Coupons() {
       </Space>
       <Table dataSource={filteredCustomers} columns={columns} rowKey="id" loading={loading} />
 
-      <Modal title={`儲值 / 加點 — ${selectedCustomer?.name ?? ''}`} open={modalOpen}
+      <Modal destroyOnClose title={`儲值 / 加點 — ${selectedCustomer?.name ?? ''}`} open={modalOpen}
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
         onOk={() => form.submit()} okText="確認" cancelText="取消">
         <Form form={form} layout="vertical" onFinish={handleTopup}>

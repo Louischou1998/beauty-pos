@@ -224,7 +224,7 @@ export default function StaffManagement() {
 
       <Table dataSource={staffList ?? []} columns={columns} rowKey="id" loading={loading} />
 
-      <Modal title={editing ? '編輯技師' : '新增技師'} open={modalOpen}
+      <Modal destroyOnClose title={editing ? '編輯技師' : '新增技師'} open={modalOpen}
         onCancel={() => setModalOpen(false)} onOk={() => form.submit()} okText="儲存" cancelText="取消">
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item name="name" label="姓名" rules={[{ required: true }]}><Input /></Form.Item>
@@ -241,7 +241,7 @@ export default function StaffManagement() {
         </Form>
       </Modal>
 
-      <Drawer title={`${selectedStaff?.name} — 排班表`} open={drawerOpen}
+      <Drawer destroyOnClose title={`${selectedStaff?.name} — 排班表`} open={drawerOpen}
         onClose={() => setDrawerOpen(false)} width={480}>
         {selectedStaff && (
           <>

@@ -258,7 +258,7 @@ export default function Inventory() {
       />
 
       {/* 新增/編輯 Modal */}
-      <Modal title={editItem ? '編輯品項' : '新增品項'} open={addOpen}
+      <Modal destroyOnClose title={editItem ? '編輯品項' : '新增品項'} open={addOpen}
         onCancel={() => { setAddOpen(false); setEditItem(null); form.resetFields(); }}
         onOk={() => form.submit()} okText="儲存" cancelText="取消">
         <Form form={form} layout="vertical" onFinish={handleSave}>
@@ -284,7 +284,7 @@ export default function Inventory() {
       </Modal>
 
       {/* 耗用 Modal */}
-      <Modal title={`耗用 — ${useTarget?.name}`} open={useOpen}
+      <Modal destroyOnClose title={`耗用 — ${useTarget?.name}`} open={useOpen}
         onCancel={() => setUseOpen(false)} onOk={() => useForm.submit()} okText="確認扣除" cancelText="取消">
         <Form form={useForm} layout="vertical" onFinish={handleUse}>
           <Form.Item name="quantity_used" label={`耗用數量 (${useTarget?.unit ?? ''})`} rules={[{ required: true }]}>
@@ -300,7 +300,7 @@ export default function Inventory() {
       </Modal>
 
       {/* 使用紀錄 Drawer */}
-      <Drawer title={`${historyTarget?.name} — 使用記錄`} open={historyOpen}
+      <Drawer destroyOnClose title={`${historyTarget?.name} — 使用記錄`} open={historyOpen}
         onClose={() => setHistoryOpen(false)} width={400}>
         {historyData.length === 0
           ? <Text type="secondary">尚無記錄</Text>

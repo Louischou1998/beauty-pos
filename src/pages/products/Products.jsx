@@ -143,7 +143,7 @@ export default function Products() {
       </Space>
       <Table dataSource={products ?? []} columns={columns} rowKey="id" loading={loading} />
 
-      <Modal title={editing ? '編輯商品' : '新增商品'} open={modalOpen}
+      <Modal destroyOnClose title={editing ? '編輯商品' : '新增商品'} open={modalOpen}
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
         onOk={() => form.submit()} okText="儲存" cancelText="取消">
         <Form form={form} layout="vertical" onFinish={handleSave}>

@@ -463,7 +463,7 @@ export default function CustomerManagement() {
       ]} />
 
       {/* 新增/編輯 Modal */}
-      <Modal title={editing ? '編輯顧客' : '新增顧客'} open={modalOpen}
+      <Modal destroyOnClose title={editing ? '編輯顧客' : '新增顧客'} open={modalOpen}
         onCancel={() => setModalOpen(false)} onOk={() => form.submit()} okText="儲存" cancelText="取消" width={560}>
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Row gutter={12}>
@@ -502,7 +502,7 @@ export default function CustomerManagement() {
       </Modal>
 
       {/* 顧客詳情 Modal */}
-      <Modal title={`${selected?.name} — 顧客詳情`} open={detailOpen}
+      <Modal destroyOnClose title={`${selected?.name} — 顧客詳情`} open={detailOpen}
         onCancel={() => setDetailOpen(false)} width={680}
         footer={[
           <Button key="topup" icon={<WalletOutlined />} type="primary" onClick={() => setTopUpOpen(true)}>儲值 / 加點</Button>,
@@ -582,7 +582,7 @@ export default function CustomerManagement() {
       </Modal>
 
       {/* 儲值/加點 Modal */}
-      <Modal title="儲值 / 加點" open={topUpOpen}
+      <Modal destroyOnClose title="儲值 / 加點" open={topUpOpen}
         onCancel={() => setTopUpOpen(false)} onOk={() => topUpForm.submit()} okText="確認" cancelText="取消">
         <Form form={topUpForm} layout="vertical" onFinish={handleTopUp}>
           <Form.Item name="type" label="類型" initialValue="balance" rules={[{ required: true }]}>
