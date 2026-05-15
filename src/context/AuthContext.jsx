@@ -7,6 +7,8 @@ import { staffApi } from '../api/staff';
 import { servicesApi } from '../api/services';
 import { customersApi } from '../api/customers';
 import { productsApi } from '../api/products';
+import { inventoryApi } from '../api/inventory';
+import { couponsApi } from '../api/coupons';
 
 const AuthContext = createContext(null);
 
@@ -37,13 +39,15 @@ export function AuthProvider({ children }) {
       localStorage.setItem(TOKEN_KEY, res.access_token);
       client.defaults.headers.common['Authorization'] = `Bearer ${res.access_token}`;
       setUser(res.user);
-      // 預載常用資料進快取（同時跑，等最慢那個）
+      // 登入後預載所有靜態資料，之後切頁面直接用快取
       Promise.all([
         staffApi.list(),
         servicesApi.list(),
         servicesApi.listCategories(),
         customersApi.list(),
         productsApi.list(),
+        inventoryApi.list(),
+        couponsApi.list(),
       ]).catch(() => {});
       return { ok: true };
     } catch (err) {
