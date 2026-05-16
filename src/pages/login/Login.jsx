@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Form, Input, Button, Typography, Alert, Space } from 'antd';
 import { UserOutlined, LockOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { clearAntOverlays } from '../../utils/clearAntOverlays';
 
 const { Title, Text } = Typography;
 
@@ -11,6 +12,10 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    clearAntOverlays();
+  }, []);
 
   const handleSubmit = async ({ email, password }) => {
     setLoading(true); setError('');

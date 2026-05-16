@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { clearAntOverlays } from '../utils/clearAntOverlays';
 
 const { Sider, Header, Content } = Layout;
 const { Text } = Typography;
@@ -73,8 +74,7 @@ export default function AppLayout({ children }) {
 
   // 每次換頁時清除 Ant Design 可能殘留的 modal 遮罩和 body overflow
   useEffect(() => {
-    document.body.style.overflow = '';
-    document.querySelectorAll('.ant-modal-mask').forEach((el) => { el.style.display = 'none'; });
+    clearAntOverlays();
   }, [location.pathname]);
 
   const handleMenuClick = ({ key }) => {

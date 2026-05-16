@@ -9,6 +9,7 @@ import { customersApi } from '../api/customers';
 import { productsApi } from '../api/products';
 import { inventoryApi } from '../api/inventory';
 import { couponsApi } from '../api/coupons';
+import { clearAntOverlays } from '../utils/clearAntOverlays';
 
 const AuthContext = createContext(null);
 
@@ -59,6 +60,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    clearAntOverlays();
     localStorage.removeItem(TOKEN_KEY);
     delete client.defaults.headers.common['Authorization'];
     setUser(null);
